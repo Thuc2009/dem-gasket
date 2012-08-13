@@ -17,7 +17,8 @@
 ########################################################################
 
 SET(PROGS
-    apo-gasket)
+    apo-gasket
+    CSD)
 
 FOREACH(var ${PROGS})
     ADD_EXECUTABLE        (${var} "${var}.cpp")
