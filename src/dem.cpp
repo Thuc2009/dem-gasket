@@ -38,13 +38,21 @@ int main(int argc, char **argv) try
     //Add the container
     dom.GenBoundingBox (-1,0.1,1.2,false);
 
+    //Fixing the plates so they dont move
+    for (size_t i=-1;i>-7;i--)
+    {
+        dom.GetParticle(i)->FixVeloc();
+    }
+
+
+
+    // Set the parameters
     double Kn          = 1.0e6;
     double Kt          = 3.3e5;
     double Gn          = 16.0;
     double Gt          = 8.0;
     double Mu          = 0.2;
 
-    // Set the parameters
     Dict P;
     for (size_t i=0;i<20;i++)
     {
