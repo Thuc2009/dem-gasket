@@ -19,6 +19,7 @@
 SET(PROGS
     apo-gasket
     dem
+    basic_dem
     CSD)
 
 FOREACH(var ${PROGS})
