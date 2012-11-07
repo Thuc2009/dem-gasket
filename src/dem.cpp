@@ -25,14 +25,12 @@ int main(int argc, char **argv) try
     // domain
     DEM::Domain dom;
 
-    String filename(argv[1]);
-
-    dom.Load(filename.CStr());
-
+    // String filename(argv[1]);
+    dom.Load(/*filename.CStr()*/"CSD");
 
     //Erase the plane
     Array<int> DeleteTags(1);
-    DeleteTags = -1;   // These tags are of all the obstacles
+    DeleteTags = -1;   					// These tags are of all the obstacles
     dom.DelParticles(DeleteTags);
 
     //Add the container
@@ -43,9 +41,6 @@ int main(int argc, char **argv) try
     {
         dom.GetParticle(i)->FixVeloc();
     }
-
-
-
     // Set the parameters
     double Kn          = 1.0e6;
     double Kt          = 3.3e5;

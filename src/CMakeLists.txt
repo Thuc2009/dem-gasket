@@ -19,8 +19,13 @@
 SET(PROGS
     apo-gasket
     dem
-    basic_dem
-    CSD)
+    shape
+    sample
+    CSD
+    CSDrandom
+    drop
+    compact
+    test)
 
 FOREACH(var ${PROGS})
     ADD_EXECUTABLE        (${var} "${var}.cpp")

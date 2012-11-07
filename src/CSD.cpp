@@ -35,7 +35,6 @@ struct face
 	double constrictionsize;
 	Vec3_t normal;
 	Vec3_t constriction;
-
 };
 struct data
 {
@@ -65,11 +64,14 @@ struct data
 	int usinginterval;
 	int usingparticle;
 	string datafile;
+	string outputdomain;
 	string soilname;
 	string line;
 	string specimentype;
 	string fillingtype;
+	string particleshapetype;
 	double specimen[3];
+	double factor[3];
 	double gsd[101];
 	double csd_number[101];
 	double csd_area[101];
@@ -128,13 +130,14 @@ int main()
 	//		datain.open(dat.datafile.c_str());
 	//	}
 	datain >> dat.soilname; 		datain.ignore(200,'\n');
-	datain >> dat.specimentype;	datain.ignore(200,'\n');
-	datain >> dat.fillingtype;	datain.ignore(200,'\n');
-	datain >> dat.density; 		datain.ignore(200,'\n'); 																								// density of soil might not a constant
-	datain >> dat.porosity;		datain.ignore(200,'\n');
-	datain >> dat.maxfraction; 	datain.ignore(200,'\n');
+	datain >> dat.specimentype;		datain.ignore(200,'\n');
+	datain >> dat.particleshapetype;datain.ignore(200,'\n');
+	datain >> dat.fillingtype;		datain.ignore(200,'\n');
+	datain >> dat.density; 			datain.ignore(200,'\n'); 																								// density of soil might not a constant
+	datain >> dat.porosity;			datain.ignore(200,'\n');
+	datain >> dat.maxfraction; 		datain.ignore(200,'\n');
 	datain >> dat.volume;			datain.ignore(200,'\n');
-	datain >> dat.GSD;			datain.ignore(200,'\n');
+	datain >> dat.GSD;				datain.ignore(200,'\n');
 	for (int i=1; i<dat.GSD+1;i++)
 		{
 			datain >> fraction;
@@ -142,6 +145,12 @@ int main()
 			dat.gsd1.push_back(fraction);
 			datain.ignore (200,'\n');
 		}
+	for (int i=0; i<3; i++)
+		{
+			datain >> dat.factor[i];
+		}
+									datain.ignore (200,'\n');
+	datain >> dat.outputdomain;		datain.ignore (200,'\n');
 	datain.close();
 	dat.density = dat.density/1000.0;																			// transfer density from g/cm3 to g/mm3
 	gsdgenerate(dat);																																		// Generate gsd
@@ -176,15 +185,18 @@ int main()
 			for (int i =0; i<3; i++)
 				{
 					dat.specimen[i]= pow(dat.volume,1.0/3.0)/2;
+					dat.specimen[i]*=dat.factor[i];
 				}
-			Vec3_t dummy(dat.specimen[0],0,0);
-			dat.particles.AddPlane(-1,dummy,0.1,2*dat.specimen[0],2*dat.specimen[0],1.0,0.5*M_PI,&OrthoSys::e1);
+
+			//Vec3_t dummy(dat.specimen[0],0,0);
+			//dat.particles.AddPlane(-1,dummy,0.1,2*dat.specimen[0],2*dat.specimen[0],1.0,0.5*M_PI,&OrthoSys::e1);
 		}
 	else if (dat.specimentype.compare("Sphere")==0)
 		{
 			for (int i = 0; i<3; i++)
 				{
 					dat.specimen[i]=pow((3.0 * dat.volume /8.0/ acos(0)),(1.0/3.0));
+					dat.specimen[i]*=dat.factor[i];
 				}
 		}
 	dat.numberunusedparticles = dat.numberparticles;
@@ -199,7 +211,7 @@ int main()
 	dat.particles.Particles[dat.usingparticle]->Position(Vec3_t(0.,0.,0.));
 	dat.particles.Particles[dat.usingparticle-1]->Position(Vec3_t(r[0]+r[1],0.,0.));
 	double x = (pow(r[0]+r[1],2)+pow(r[0]+r[2],2)-pow(r[1]+r[2],2))/2/(r[0]+r[1]);
-	dat.particles.Particles[dat.usingparticle-2]->Position(Vec3_t(x, pow(pow(r[0]+r[2],2)-pow(x,2),1/2),0));
+	dat.particles.Particles[dat.usingparticle-2]->Position(Vec3_t(x, pow(pow(r[0]+r[2],2)-pow(x,2),0.5),0));
 	createface(dat, dat.usingparticle, dat.usingparticle-1, dat.usingparticle-2,dat.usingparticle-3);								//create face from 3 particles
 	putparticle(dat,dat.usingparticle-3,0);																							//put first particle on first face, this face will put on twice
 	createtetrahedron(dat,0,dat.usingparticle-3);
@@ -212,6 +224,7 @@ int main()
 			useparticle(dat, dat.usingparticle - i);
 		}
 	dat.usingparticle -=4;
+	dat.numberunusedparticles -=4;
 	usingparticle = dat.usingparticle;
 	// first loop for putting particles
 	int usinginterval = dat.usinginterval;
@@ -293,18 +306,18 @@ int main()
 								dat.usingparticle -=1;
 								dat.numberunusedparticles -=1;
 							}
-						dat.intervals[usinginterval].usingparticle -=1;
-						if (dat.intervals[usinginterval].usingparticle < dat.intervals[usinginterval].firstparticle)
-							{
-								dat.intervals[usinginterval].ability=false;
-								usinginterval -=1;
-							}
+						//dat.intervals[usinginterval].usingparticle -=1;
+						//if (dat.intervals[usinginterval].usingparticle < dat.intervals[usinginterval].firstparticle)
+						//	{
+						//		dat.intervals[usinginterval].ability=false;
+						//		usinginterval -=1;
+						//	}
 					}
 				dat.usingface+=1;
 			}
 		// export results
-		dat.particles.WriteXDMF("CSD");// export to draw visual results
-		dat.particles.Save("CSD");
+		dat.particles.WriteXDMF(dat.outputdomain.c_str());// export to draw visual results
+		dat.particles.Save(dat.outputdomain.c_str());
 		textout (dat);
 	}
 // function
@@ -375,28 +388,6 @@ inline void calculateintervals(data & dat)																							//prepare a lis
 				dat.numberparticles += dat.intervals[i].numberparticles;
 			}
 	}
-inline void checkoverlap(data&dat, int p0)
-	{
-		dat.checkoverlap =true;
-		dat.overlappingpoint =-1;
-		double overlapdistance = -0.001;																												// default overlappint distance, to avoid calculation error
-		for ( int i = 0;  i < dat.numberparticles; i++)
-			{
-				if ((dat.particlesuse[i])and(!(i==p0)))
-					{
-						double distance = norm(dat.particles.Particles[p0]->x-dat.particles.Particles[i]->x) -dat.particles.Particles[p0]->Props.R -dat.particles.Particles[i]->Props.R;
-						if (distance < - dat.approximation)
-							{
-								if (overlapdistance > distance)
-									{
-										dat.overlappingpoint = i;
-										overlapdistance = distance;
-									}
-								dat.checkoverlap =false;
-							}
-					}
-			}
-	}
 inline void checkdistance(data&dat, int p0)
 	{
 		dat.checkdistance =true;
@@ -418,6 +409,29 @@ inline void checkdistance(data&dat, int p0)
 					}
 			}
 	}
+inline void checkoverlap(data&dat, int p0)
+	{
+		dat.checkoverlap =true;
+		dat.overlappingpoint =-1;
+		double overlapdistance = -0.00001;																												// default overlappint distance, to avoid calculation error
+		for ( int i = 0;  i < dat.numberparticles; i++)
+			{
+				if ((dat.particlesuse[i])and(!(i==p0)))
+					{
+						double distance = norm(dat.particles.Particles[p0]->x-dat.particles.Particles[i]->x) -dat.particles.Particles[p0]->Props.R -dat.particles.Particles[i]->Props.R;
+						if (distance < - dat.approximation)
+							{
+								if (overlapdistance > distance)
+									{
+										dat.overlappingpoint = i;
+										overlapdistance = distance;
+									}
+								dat.checkoverlap =false;
+							}
+					}
+			}
+	}
+
 inline void closeface(data & dat, int m0)
 	{
 		dat.faces[m0].faceuse =0;
@@ -472,7 +486,7 @@ inline void createface(data & dat, int p0, int p1, int p2,int p3)
 					{
 						if (facetemprorary.points[0]== dat.faces[i].points[0])
 							{
-								if ((facetemprorary.points[1]== dat.faces[i].points[1])and(facetemprorary.points[1]== dat.faces[i].points[1]))
+								if ((facetemprorary.points[1]== dat.faces[i].points[1])and(facetemprorary.points[2]== dat.faces[i].points[2]))
 									{
 										if (facetemprorary.faceuse*dat.faces[i].faceuse <0)
 											{
@@ -628,7 +642,15 @@ inline void textout (data & dat)
 		dataout << dat.specimentype << " " << dat.volume << " " << dat.specimen[0] << "\n";
 		for (int i=0; i<dat.numberintervals; i++)
 			{
-				dataout << i << " " << dat.intervals[i].diameter<< " " << dat.intervals[i].numberparticles <<" "<< dat.intervals[i].mass <<"\n";
+				dataout << i << " " << dat.intervals[i].diameter<< " " << dat.intervals[i].numberparticles <<" "<< dat.intervals[i].mass << " " << dat.intervals[i].firstparticle << " "<< dat.intervals[i].lastparticle<< "\n";
+			}
+		dataout << "List of unused particles \n";
+		for (int i=0; i<dat.numberintervals; i++)
+			{
+				if (dat.intervals[i].ability == true)
+					{
+						dataout << i << " : " << dat.intervals[i].usingparticle << " " <<dat.intervals[i].firstparticle << "\n";
+					}
 			}
 		dataout.close();
 	}
