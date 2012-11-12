@@ -226,7 +226,6 @@ int main()
 			useparticle(dat, dat.usingparticle - i);
 		}
 	dat.usingparticle -=4;
-	dat.numberunusedparticles -=4;
 	// first loop for putting particles
 	int usinginterval = dat.usinginterval;
 	while ((dat.numberunusedparticles> 0)and(dat.numberopenfaces > 0))
@@ -260,7 +259,6 @@ int main()
 					else
 						{
 							useparticle(dat, dat.temproraryparticle);													// mark particle used
-
 						}
 					//dat.intervals[usinginterval].usingparticle -=1;
 					//if (dat.intervals[usinginterval].usingparticle < dat.intervals[usinginterval].firstparticle)
@@ -283,6 +281,7 @@ int main()
 			}
 
 		}
+	cout << dat.numberparticles<< " "<<dat.numberunusedparticles << " " <<dat.usingparticle <<" " <<dat.numberfaces<< " "<<dat.usingface<< " " <<dat.numberopenfaces;
 	// export results
 	dat.particles.WriteXDMF("CSD");// export to draw visual results
 	dat.particles.Save("CSD");
@@ -589,7 +588,7 @@ inline void moveon(data & dat, int p0, int m0)
 	{
 		Vec3_t distance = dat.particles.Particles[p0]->x - dat.particles.Particles[dat.overlappingpoint]->x;
 		Vec3_t projection = dot(distance, dat.faces[m0].normal);
-		double move = sqrt(pow(dat.particles.Particles[p0]->Props.R + dat.particles.Particles[dat.overlappingpoint]->Props.R,2) - pow(norm(distance),2)+pow(norm(projection),2))-norm(projection);
+		double move = sqrt(pow(dat.particles.Particles[p0]->Props.R + dat.particles.Particles[dat.overlappingpoint]->Props.R,2.0) - pow(norm(distance),2.0)+pow(norm(projection),2.0))-norm(projection);
 		dat.finalposition = dat.particles.Particles[p0]->x - dat.faces[m0].faceuse*move*dat.faces[m0].normal;
 		dat.particles.Particles[p0]->Position(dat.finalposition);
 	}

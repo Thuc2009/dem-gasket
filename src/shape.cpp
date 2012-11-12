@@ -177,6 +177,7 @@ int main(int argc, char **argv) try
 			datain >> dat.gsd[fraction];
 			dat.gsd1.push_back(fraction);
 			datain >> dat.densities[fraction];
+			dat.densities[fraction] /=1000;																													// change to g/mm3
 			for (int j =0; j<dat.numbershapes;j++)
 				{
 					datain >>dat.shapefactors[fraction][j];
@@ -195,7 +196,7 @@ int main(int argc, char **argv) try
 		}
 									datain.ignore (200,'\n');
 	datain.close();
-	dat.density = dat.density/1000.0;																			// transfer density from g/cm3 to g/mm3
+	dat.density = dat.density/1000.0;																														// transfer density from g/cm3 to g/mm3
 	gsdgenerate(dat);																																		// Generate gsd
 	// choose again volume
 	dat.choice = false;
@@ -396,9 +397,16 @@ int main(int argc, char **argv) try
 				//cout << dat.usingparticle << "\n";
 			}
 		cout << "put particles \n";
+		for (int i=0; i< dat.particles.Particles.Size(); i++)
+			{
+				if (dat.particlesuse[i]==false)
+					{
+						dat.particles.Particles[i]->Tag -=100*dat.numbershapes;
+					}
+			}
 		// export results
 		savedomain(dat);
-		textout (dat);
+		textout(dat);
 		cout << "saved domain \n";
 	    return 0;
 	}
@@ -406,7 +414,7 @@ int main(int argc, char **argv) try
 // function
 inline double equalradius(data&dat, int p0)
 	{
-		double r= dat.intervals[int(dat.particles.Particles[p0]->Tag/dat.numbershapes)].equalradius[abs(dat.particles.Particles[p0]->Tag%dat.numbershapes)];
+		double r= dat.intervals[abs(int(dat.particles.Particles[p0]->Tag/dat.numbershapes))].equalradius[abs(dat.particles.Particles[p0]->Tag)%dat.numbershapes];
 		return (r);
 	}
 inline double interpolation (double x1,double x2, double y1,double y2,double x3)

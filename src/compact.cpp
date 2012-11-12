@@ -15,6 +15,7 @@ int main(int argc, char **argv) try
 	double dtout;
 	double Alpha;
 	double Kinematicenergy;
+	double starttag;
 	string filekey;
 	int visualization;
 	int processornumber;
@@ -52,16 +53,21 @@ int main(int argc, char **argv) try
 	datain >> roundratio;		datain.ignore(200,'\n');
 	datain >> Alpha;     		datain.ignore(200,'\n');
 	datain >> Kinematicenergy;  datain.ignore(200,'\n');
+	datain >> starttag;			datain.ignore(200,'\n');
 	datain.close();
 	cout << "data reading \n";
+	if (starttag <0)
+		{
+			particles.GenBoundingBox(starttag,0.01,1.2,false);
+		}
     for (size_t i=-1;i>-7;i--)
     {
         particles.GetParticle(i)->FixVeloc();
     }
 	if (axis=="z")
 	{
-		particles.GetParticle(tag)->vzf = false;
-		particles.GetParticle(tag)->Ff=Vec3_t(0,0,force);
+		particles.GetParticle(starttag-4)->vzf = false;
+		particles.GetParticle(starttag-4)->Ff=Vec3_t(0,0,force);
 	}
     Dict P;
     for (size_t i=0;i<20;i++)

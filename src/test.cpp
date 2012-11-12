@@ -4,6 +4,6 @@ using namespace std;
 using namespace DEM;
 int main()
 {
-	int a= -5/3;
+	int a= abs(-7)%4;
 	cout << a <<"\n";
 }

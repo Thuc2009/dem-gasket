@@ -20,6 +20,7 @@ SET(PROGS
     apo-gasket
     dem
     shape
+    shaperandom
     sample
     CSD
     CSDrandom
