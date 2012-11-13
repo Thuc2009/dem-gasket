@@ -1,11 +1,10 @@
 #include <mechsys/dem/domain.h>
 using namespace std;
 using namespace DEM;
-void Setup (DEM::Domain & dom, void * UD)
+void Report (DEM::Domain & particles, void * UD)
 {
-	std::cout <<"all the time: hi" << dom.Time << "  dt=" << std::endl;
+	particles.Save ("drop");
 }
-
 int main(int argc, char **argv) try
 {
 	int count1 =0;
@@ -100,7 +99,7 @@ int main(int argc, char **argv) try
     //       }
     //cout << count1 <<"\n";
     //count1=0;
-    particles.Solve  (/*tf*/tf, /*dt*/dt, /*dtOut*/dtout, NULL, NULL, /*filekey*/filekey.c_str(),/*Visit visualization*/visualization,/*N_proc*/processornumber, /*kinematic energy*/Kinematicenergy);
+    particles.Solve  (/*tf*/tf, /*dt*/dt, /*dtOut*/dtout, NULL, &Report, /*filekey*/filekey.c_str(),/*Visit visualization*/visualization,/*N_proc*/processornumber, /*kinematic energy*/Kinematicenergy);
     particles.Save (domainout.c_str());
     cout << "solve domain \n";
 
