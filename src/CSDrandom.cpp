@@ -104,6 +104,7 @@ void gsdgenerate(data & dat);
 void listprepare(data & dat);
 void moveon(data & dat, int p0, int m0);
 void putparticle(data & dat, int p0, int m0);
+void savedomain(data&dat);
 void textout (data& dat);
 void tryputparticle(data&dat, int p0,int m0);
 void useparticle(data & dat, int p0);
@@ -283,8 +284,7 @@ int main()
 		}
 	cout << dat.numberparticles<< " "<<dat.numberunusedparticles << " " <<dat.usingparticle <<" " <<dat.numberfaces<< " "<<dat.usingface<< " " <<dat.numberopenfaces;
 	// export results
-	dat.particles.WriteXDMF("CSD");// export to draw visual results
-	dat.particles.Save("CSD");
+	savedomain(dat);
 	textout (dat);
 }
 // function
@@ -627,6 +627,12 @@ inline void putparticle(data & dat, int p0, int m0)
 				dat.particles.Particles[p0]->Position(finalposition);
 				dat.checkradius =true;
 			}
+	}
+inline void savedomain(data&dat)
+	{
+		dat.particles.WriteXDMF(dat.outputdomain.c_str());// export to draw visual results
+		dat.particles.Save(dat.outputdomain.c_str());
+		cout << "saved domain: " << dat.outputdomain <<"\n";
 	}
 inline void textout (data & dat)
 	{

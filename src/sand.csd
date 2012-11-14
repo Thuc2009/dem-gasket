@@ -12,6 +12,6 @@ Layer Type of filling
 060 0.5 3.2 1.0 1.0 1.0 0.0
 090 1.0 3.2 1.0 0.0 0.0 0.0
 100 2.0 3.2 1.0 1.0 1.0 1.0 
-1.0 1.0 5.0 x y z factor of specimen
-CSDs	name of output domain file
+1.0 1.0 1.0 x y z factor of specimen
+CSD	name of output domain file
 4.0 2.0 1.0 rectangularbox dimension large to small

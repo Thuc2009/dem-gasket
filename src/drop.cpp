@@ -62,13 +62,13 @@ int main(int argc, char **argv) try
 	if (starttag<0)
 		{
 			particles.GenBoundingBox(starttag,0.01,1.2,false);
-			for (size_t i=starttag;i>starttag-6;i--)
+			for (int i=starttag;i>starttag-6;i--)
 			    {
 			        particles.GetParticle(i)->FixVeloc();
 			    }
 		}
     Dict P;
-    for (size_t i=0;i<numberintervals;i++)
+    for (int i=0;i<numberintervals;i++)
     {
         P.Set(/*Tag*/i*numbershapes,"Kn Kt Gn Gt Mu",Kn,Kt,Gn,Gt,Mu);
         for (int j=1; j<numbershapes; j++)

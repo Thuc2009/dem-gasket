@@ -25,8 +25,10 @@ SET(PROGS
     CSD
     CSDrandom
     drop
+    droppart
     compact
-    test)
+    test
+    visualisation)
 
 FOREACH(var ${PROGS})
     ADD_EXECUTABLE        (${var} "${var}.cpp")
