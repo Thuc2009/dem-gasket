@@ -1,0 +1,17 @@
+2.0e4	Kn
+2.0e4	Kt
+16.0	Gn
+8.0		Gt
+0.2		Mu
+1.0e-5	dt
+12		tf
+0.1		dtout
+compact	filekey
+2		visuallation
+6		Number of processor
+20		roundratio
+0.05	Alpha
+0.0001 	Kinematic engergy
+-1000	Start tag
+4 number shapes
+20 number intervals

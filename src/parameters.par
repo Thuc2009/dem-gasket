@@ -1,0 +1,10 @@
+2.0e4	Kn
+2.0e4	Kt
+0.2		Mu
+4.0e-4	dt
+10.0	tf
+0.1		dtout
+dem		filekey
+2		visuallation
+3		Number of processor
+20		roundratio
