@@ -71,7 +71,10 @@ int main(int argc, char **argv) try
 
     dom.Load(filename.CStr());
 
-    dom.GenBoundingBox (/*InitialTag*/-1000, 0.05, /*Cf*/1.1);
+    Array<DEM::Particle *> Par;
+    dom.GetParticles(-1000,Par);
+
+    if (Par.Size()==0) dom.GenBoundingBox (/*InitialTag*/-1000, 0.05, /*Cf*/1.1);
     dom.GetParticle(-1000)->FixVeloc();
     dom.GetParticle(-1001)->FixVeloc();
     dom.GetParticle(-1002)->FixVeloc();
