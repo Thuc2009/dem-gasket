@@ -110,6 +110,8 @@ int main(int argc, char **argv) try
         dom.Particles[i]->Props.Gv = Gv;
         dom.Particles[i]->Props.Gm = Gm;
         dom.Particles[i]->Props.Mu = Mu;
+        dom.Particles[i]->v        = OrthoSys::O;
+        dom.Particles[i]->w        = OrthoSys::O;
         if (dom.Particles[i]->Dmax    < mindiam) mindiam = dom.Particles[i]->Dmax   ;
         if (dom.Particles[i]->Props.R < minsr  ) minsr   = dom.Particles[i]->Props.R;
         if (dom.Particles[i]->Props.m < minmass) minmass = dom.Particles[i]->Props.m;
