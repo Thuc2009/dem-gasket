@@ -1,0 +1,14 @@
+CSDs     filename;     
+Csample  fileout;      
+0.1      Alpha;        
+2.0e3    Kn;           
+2.0e3    Kt;           
+8.0      Gn;           
+0.0      Gt;           
+0.05      Gv;           
+0.05      Gm;           
+0.3      Mu;           
+1.0      Press;        
+5.0e-5   dt;           
+0.1      dtOut;        
+12.0     Tf;           

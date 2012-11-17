@@ -14,6 +14,7 @@ int main(int argc, char **argv) try
 	datain.close();
 	DEM::Domain particles;
 	particles.Load(domainin.c_str());
+	particles.Save(domainout.c_str());
 	particles.WriteXDMF(domainout.c_str());// export to draw visual results
 	cout << "Write: " <<domainin <<" to: " << domainout<<"\n";
 }

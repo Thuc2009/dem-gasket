@@ -19,6 +19,11 @@
 // MechSys
 #include <mechsys/dem/domain.h>
 
+void Report (DEM::Domain & dom, void *UD)
+{
+    dom.Save(dom.FileKey.CStr());
+    //std::cout << dom.Time << std::endl;
+}
 
 int main(int argc, char **argv) try
 {
@@ -38,6 +43,8 @@ int main(int argc, char **argv) try
     double Kt;
     double Gn;
     double Gt;
+    double Gv;
+    double Gm;
     double Mu;
     double Press;
     double dt;
@@ -51,6 +58,8 @@ int main(int argc, char **argv) try
     infile >> Kt;           infile.ignore(200,'\n');
     infile >> Gn;           infile.ignore(200,'\n');
     infile >> Gt;           infile.ignore(200,'\n');
+    infile >> Gv;           infile.ignore(200,'\n');
+    infile >> Gm;           infile.ignore(200,'\n');
     infile >> Mu;           infile.ignore(200,'\n');
     infile >> Press;        infile.ignore(200,'\n');
     infile >> dt;           infile.ignore(200,'\n');
@@ -98,6 +107,8 @@ int main(int argc, char **argv) try
         dom.Particles[i]->Props.Kt = Kt;
         dom.Particles[i]->Props.Gn = Gn;
         dom.Particles[i]->Props.Gt = Gt;
+        dom.Particles[i]->Props.Gv = Gv;
+        dom.Particles[i]->Props.Gm = Gm;
         dom.Particles[i]->Props.Mu = Mu;
         if (dom.Particles[i]->Dmax    < mindiam) mindiam = dom.Particles[i]->Dmax   ;
         if (dom.Particles[i]->Props.R < minsr  ) minsr   = dom.Particles[i]->Props.R;
@@ -109,8 +120,9 @@ int main(int argc, char **argv) try
     std::cout << "Minimun mass             " << minmass          << std::endl;
     std::cout << "Suggested time step      " << sqrt(minmass/Kn) << std::endl;
 
-//
-    dom.Solve     (/*tf*/Tf, /*dt*/dt, /*dtOut*/dtOut, NULL, NULL, /*filekey*/filekey.CStr(),/*Visit visualization*/2,/*N_proc*/Nproc);
+    dom.Solve     (/*tf*/Tf, /*dt*/dt, /*dtOut*/dtOut, NULL, &Report, /*filekey*/filekey.CStr(),/*Visit visualization*/2,/*N_proc*/Nproc);
+    
+    
     dom.Save(fileout.CStr());
 
     return 0;
