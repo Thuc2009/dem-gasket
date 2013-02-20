@@ -3,7 +3,7 @@
 1.0	Gn
 0.0	Gt
 0.2	Mu
-1.0e-5	dt
+5.0e-6	dt
 12	tf
 0.1	dtout
 shapedrop	filekey
@@ -15,5 +15,5 @@ shapedrop	filekey
 -1000 starttag
 4 number shapes
 20 number intervals
-5 number parts
+10 number parts
 1 start part

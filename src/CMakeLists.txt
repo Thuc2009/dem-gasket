@@ -18,15 +18,17 @@
 
 SET(PROGS
     apo-gasket
-    dem
-    shape
-    shaperandom
-    sample
+    compact
+    countcontacts
     CSD
-    CSDrandom
+    diverseCSD
+    randomCSD
+    dem
     drop
     droppart
-    compact
+    sample
+    shape
+    diverseshape
     test
     visualisation)
 

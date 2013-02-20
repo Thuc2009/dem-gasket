@@ -30,6 +30,7 @@ int main(int argc, char **argv) try
 	int visualization;
 	int processornumber;
 	double roundratio;
+	bool check;
 	DEM::Domain particles;
 	//DEM::Domain particlesbefore;
 	Array<Vec3_t> posbefore;
@@ -124,16 +125,18 @@ int main(int argc, char **argv) try
     								partparticles[i].Particles.Push(particles.Particles[j]);
     							}
     					}
-    				if (i>0)
-    					{
-        					partparticles[i-1].BoundingBox(xmindown, xmaxdown);
-        					partparticles[i].BoundingBox(xminup,xmaxup);
-        					move = dot(xmaxdown-xminup,z)*z;
-        					for (size_t j=0; j<partparticles[i].Particles.Size(); j++)
-        						{
-        							partparticles[i].Particles[j]->Translate(move);
-        						}
-    					}
+    				//if (i>0)
+    				//	{
+        			//		partparticles[i-1].BoundingBox(xmindown, xmaxdown);
+        			//		partparticles[i].BoundingBox(xminup,xmaxup);
+        			//		move = dot(xmaxdown-xminup,z)*z;
+        			//		cout << move << "\n";
+        			//		cin >> check;
+        			//		for (size_t j=0; j<partparticles[i].Particles.Size(); j++)
+        			//			{
+        			//				partparticles[i].Particles[j]->Translate(move);
+        			//			}
+    				//	}
     				partparticles[i].GenBoundingBox(starttag,0.01,1.2,false);
     				for (int j=starttag;j>starttag-6;j--)
     				    {
@@ -144,14 +147,15 @@ int main(int argc, char **argv) try
                     if (partparticles[i].Particles.Size()>0)
                     	{
                     		partparticles[i].Solve(/*tf*/ tf/numberparts, /*dt*/dt, /*dtOut*/dtout, NULL, NULL, /*filekey*/file.c_str(),/*Visit visualization*/visualization,/*N_proc*/processornumber, /*kinematic energy*/Kinematicenergy);
-                    		particles.Save(file.c_str());
-                    		particles.WriteXDMF(file.c_str());// export to draw visual results
+                    		partparticles[i].Save(file.c_str());
+                    		particles.Save(domainout.c_str());
+                    		particles.WriteXDMF(domainout.c_str());// export to draw visual results
                     	}
     			}
     	}
-    particles.Solve  (/*tf*/tf, /*dt*/dt, /*dtOut*/dtout, NULL, NULL, /*filekey*/filekey.c_str(),/*Visit visualization*/visualization,/*N_proc*/processornumber, /*kinematic energy*/Kinematicenergy);
-    particles.Save (domainout.c_str());
-    cout << "solve domain \n";
+    //particles.Solve  (/*tf*/tf, /*dt*/dt, /*dtOut*/dtout, NULL, NULL, /*filekey*/filekey.c_str(),/*Visit visualization*/visualization,/*N_proc*/processornumber, /*kinematic energy*/Kinematicenergy);
+    //particles.Save (domainout.c_str());
+    //cout << "solve domain \n";
 
     //for (size_t i=0;i<particles.Particles.Size();i++)
     //    {

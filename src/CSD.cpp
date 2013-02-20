@@ -1,4 +1,9 @@
+#include <iostream>
+#include <cmath>
 #include <mechsys/dem/domain.h>
+#include <mechsys/util/fatal.h>
+#include <mechsys/mesh/structured.h>
+#include <mechsys/mesh/unstructured.h>
 // variable declaration
 using namespace std;
 using namespace DEM;
@@ -111,7 +116,6 @@ int main()
 	dat.check = true;
 	dat.particlereuse = false;
 	dat.facereuse = false;
-	dat.approximation =0.001;
 	int fraction=0;
 	int interval=0;
 	int usingparticle =0;
@@ -137,6 +141,7 @@ int main()
 	datain >> dat.porosity;			datain.ignore(200,'\n');
 	datain >> dat.maxfraction; 		datain.ignore(200,'\n');
 	datain >> dat.volume;			datain.ignore(200,'\n');
+	datain >> dat.approximation;	datain.ignore(200,'\n');
 	datain >> dat.GSD;				datain.ignore(200,'\n');
 	for (int i=1; i<dat.GSD+1;i++)
 		{
@@ -159,6 +164,7 @@ int main()
 	while (!dat.choice)
 		{
 			calculateintervals(dat);																														// generate list of intervals with number of particles
+			cout << dat.numberparticles <<"\n";
 			//for (int i=0; i<dat.numberintervals; i++)
 			//	{
 			//		cout << i << " " << dat.intervals[i].begin<< " " << dat.intervals[i].numberparticles << " " << dat.intervals[i].diameter << "\n";
@@ -315,6 +321,19 @@ int main()
 					}
 				dat.usingface+=1;
 			}
+		// second loop for putting particles
+		//Mesh::Unstructured mesh(dat.particles.Particles.Size());
+		//Array<double> X(dat.particles.Particles.Size()), Y(dat.particles.Particles.Size()), Z(dat.particles.Particles.Size());
+		//for (size_t i=0;i<dat.particles.Particles.Size();i++)
+		//	{
+		//		X[i]=dat.particles.Particles[i]->x(0);
+		//		Y[i]=dat.particles.Particles[i]->x(1);
+		//		Z[i]=dat.particles.Particles[i]->x(2);
+		//	}
+		//mesh.Delaunay(X, Y, Z, -1);
+		//cout << "saving mesh \n";
+		//mesh.WriteVTU ("delaunay3d");
+
 		// export results
 		dat.particles.WriteXDMF(dat.outputdomain.c_str());// export to draw visual results
 		dat.particles.Save(dat.outputdomain.c_str());
@@ -584,7 +603,8 @@ inline void listprepare(data & dat)																								// add particles to d
 					}
 				dat.intervals[i].lastparticle =count -1;
 				dat.intervals[i].usingparticle =count-1;
-				dat.intervals[i].ability =true;
+				dat.intervals[i].ability =true;\
+				cout << i << " " << dat.intervals[i].numberparticles << "\n";
 			}
 	}
 inline void moveon(data & dat, int p0)

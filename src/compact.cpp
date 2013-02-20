@@ -1,9 +1,21 @@
 #include <mechsys/dem/domain.h>
 using namespace std;
 using namespace DEM;
-void Setup (DEM::Domain & dom, void * UD)
+
+struct UserData
 {
-	std::cout <<"all the time: hi" << dom.Time << "  dt=" << std::endl;
+	double pressure;
+};
+
+void report (DEM::Domain & particles, void *UD)
+{
+	//UserData & dat = (*static_cast<UserData *>(UD));
+	String fn;
+	fn.Printf    ("%s_%04d", particles.FileKey.CStr(), particles.idx_out);
+	particles.WriteVTKContacts(fn.CStr());
+	particles.WriteBF(fn.CStr());
+
+	//dat.pressure = 0;
 }
 
 int main(int argc, char **argv) try
@@ -27,6 +39,8 @@ int main(int argc, char **argv) try
 	int visualization;
 	int processornumber;
 	double roundratio;
+	//UserData dat;
+	//DEM::Domain particles(&dat);
 	DEM::Domain particles;
 	//DEM::Domain particlesbefore;
 	Array<Vec3_t> posbefore;
@@ -76,9 +90,9 @@ int main(int argc, char **argv) try
 	if (axis=="z")
 	{
 		particles.GetParticle(starttag-4)->vzf = false;
-		particles.GetParticle(starttag-4)->Ff=Vec3_t(0,0,force);
+		particles.GetParticle(starttag-4)->Ff=Vec3_t(0,0,-force);
 		particles.GetParticle(starttag-5)->vzf = false;
-		particles.GetParticle(starttag-5)->Ff=Vec3_t(0,0,-force);
+		particles.GetParticle(starttag-5)->Ff=Vec3_t(0,0,force);
 	}
     Dict P;
     for (size_t i=0;i<numberintervals;i++)
@@ -92,12 +106,13 @@ int main(int argc, char **argv) try
     cout << "set parameters \n";
     Vec3_t g(0.0,0.0,-9.8);
     particles.Alpha = Alpha;
-    //for (size_t i=0;i<particles.Particles.Size();i++)
-    //    {
-    //       particles.Particles[i]->Ff = particles.Particles[i]->Props.m*g;
-    //        posbefore.Push(particles.Particles[i]->x);
-    //    }
-    particles.Solve  (/*tf*/tf, /*dt*/dt, /*dtOut*/dtout, NULL, NULL, /*filekey*/filekey.c_str(),/*Visit visualization*/visualization,/*N_proc*/processornumber, /*kinematic energy*/Kinematicenergy);
+    for (size_t i=0;i<particles.Particles.Size();i++)
+        {
+           particles.Particles[i]->Ff = particles.Particles[i]->Props.m*g;
+            posbefore.Push(particles.Particles[i]->x);
+        }
+    int time=0;
+    particles.Solve  (/*tf*/tf, /*dt*/dt, /*dtOut*/dtout, NULL, &report, /*filekey*/filekey.c_str(),/*Visit visualization*/visualization,/*N_proc*/processornumber, /*kinematic energy*/Kinematicenergy);
     particles.Save (domainout.c_str());
     cout << "solve domain \n";
 	return 0;
