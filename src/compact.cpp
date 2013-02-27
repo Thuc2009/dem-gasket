@@ -11,10 +11,9 @@ void report (DEM::Domain & particles, void *UD)
 {
 	//UserData & dat = (*static_cast<UserData *>(UD));
 	String fn;
-	fn.Printf    ("%s_%04d", particles.FileKey.CStr(), particles.idx_out);
+	fn.Printf    ("%s_%s_%04d", particles.FileKey.CStr(), "bf",particles.idx_out);
 	particles.WriteVTKContacts(fn.CStr());
 	particles.WriteBF(fn.CStr());
-
 	//dat.pressure = 0;
 }
 
@@ -79,6 +78,12 @@ int main(int argc, char **argv) try
 	datain >> numberintervals; 	datain.ignore(200,'\n');
 	datain.close();
 	cout << "data reading \n";
+    Vec3_t g(0.0,0.0,-0.098);
+    //for (size_t i=0;i<particles.Particles.Size();i++)
+    //    {
+    //      particles.Particles[i]->Ff = particles.Particles[i]->Props.m*g;
+    //        posbefore.Push(particles.Particles[i]->x);
+    //    }
 	if (starttag < 0)
 		{
 			particles.GenBoundingBox(starttag,0.01,1.2,false);
@@ -104,13 +109,7 @@ int main(int argc, char **argv) try
         	}
     }
     cout << "set parameters \n";
-    Vec3_t g(0.0,0.0,-9.8);
     particles.Alpha = Alpha;
-    for (size_t i=0;i<particles.Particles.Size();i++)
-        {
-           particles.Particles[i]->Ff = particles.Particles[i]->Props.m*g;
-            posbefore.Push(particles.Particles[i]->x);
-        }
     int time=0;
     particles.Solve  (/*tf*/tf, /*dt*/dt, /*dtOut*/dtout, NULL, &report, /*filekey*/filekey.c_str(),/*Visit visualization*/visualization,/*N_proc*/processornumber, /*kinematic energy*/Kinematicenergy);
     particles.Save (domainout.c_str());
