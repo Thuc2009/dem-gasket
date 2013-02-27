@@ -335,6 +335,16 @@ int main()
 		//mesh.WriteVTU ("delaunay3d");
 
 		// export results
+		//for (int i=0;i<dat.numberparticles;i++)
+		//	{
+		//		if (!dat.particlesuse(i))
+		//			{
+		//				dat.particles.Particles[i]->Tag = -1000;
+		//			}
+		//	}
+		Array <int> delpar;
+		delpar.Push(-1000);
+		dat.particles.DelParticles(delpar);
 		dat.particles.WriteXDMF(dat.outputdomain.c_str());// export to draw visual results
 		dat.particles.Save(dat.outputdomain.c_str());
 		textout (dat);
