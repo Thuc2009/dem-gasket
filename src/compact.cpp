@@ -94,10 +94,8 @@ int main(int argc, char **argv) try
 		}
 	if (axis=="z")
 	{
-		particles.GetParticle(starttag-4)->vzf = false;
-		particles.GetParticle(starttag-4)->Ff=Vec3_t(0,0,-force);
-		particles.GetParticle(starttag-5)->vzf = false;
-		particles.GetParticle(starttag-5)->Ff=Vec3_t(0,0,force);
+		particles.GetParticle(starttag+tag)->vzf = false;
+		particles.GetParticle(starttag+tag)->Ff=Vec3_t(0,0,force);
 	}
     Dict P;
     for (size_t i=0;i<numberintervals;i++)

@@ -126,6 +126,7 @@ int main()
 	//cout << "Welcome to CSD program \n";
 	//cout << "Enter data file name: ";
 	//cin >> dat.datafile;
+	cout << "Reading data \n";
 	dat.datafile = "sand.csd";
 	datain.open(dat.datafile.c_str());
 	//if (!datain.good())
@@ -184,6 +185,7 @@ int main()
 			//	}
 			dat.choice =true; 																	// autocheck
 		}
+	cout << "Preparing list \n";
 	listprepare(dat);																			// generate list of particles with confirmed volume
 	//generate specimen;
 	if (dat.specimentype.compare("Cube")==0)
@@ -205,6 +207,7 @@ int main()
 					dat.specimen[i]*=dat.factor[i];
 				}
 		}
+	cout << "Create basic face \n";
 	dat.numberunusedparticles = dat.numberparticles;
 	// generate basic tetrahedron
 	double r[3];
@@ -233,6 +236,7 @@ int main()
 	dat.numberunusedparticles -=4;
 	usingparticle = dat.usingparticle;
 	// first loop for putting particles
+	cout << "Start first loop \n";
 	int usinginterval = dat.usinginterval;
 		while ((dat.usingparticle > -1)and(dat.numberopenfaces > 0))
 	 		{
@@ -335,16 +339,29 @@ int main()
 		//mesh.WriteVTU ("delaunay3d");
 
 		// export results
-		//for (int i=0;i<dat.numberparticles;i++)
-		//	{
-		//		if (!dat.particlesuse(i))
-		//			{
-		//				dat.particles.Particles[i]->Tag = -1000;
-		//			}
-		//	}
-		Array <int> delpar;
-		delpar.Push(-1000);
-		dat.particles.DelParticles(delpar);
+		cout << "delete unused particles \n";
+		dat.check=false;
+		for (int i=0;i<dat.numberparticles;i++)
+			{
+				if (dat.particlesuse[i]==false)
+					{
+						dat.particles.Particles[i]->Tag = -1000;
+						dat.check =true;
+					}
+			}
+		if (dat.check)
+		{
+			Array <int> delpar;
+			delpar.Push(-1000);
+			cout <<delpar[0] << "\n";
+			cout << "deleting \n";
+			dat.particles.DelParticles(delpar);
+		}
+		for (int i=0; i<dat.particles.Particles.Size(); i++)
+			{
+				dat.particles.Particles[i]->Index=i;
+			}
+		cout << "save files \n";
 		dat.particles.WriteXDMF(dat.outputdomain.c_str());// export to draw visual results
 		dat.particles.Save(dat.outputdomain.c_str());
 		textout (dat);

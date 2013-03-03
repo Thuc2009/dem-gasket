@@ -283,6 +283,23 @@ int main()
 
 		}
 	cout << dat.numberparticles<< " "<<dat.numberunusedparticles << " " <<dat.usingparticle <<" " <<dat.numberfaces<< " "<<dat.usingface<< " " <<dat.numberopenfaces<<"\n";
+	dat.check=false;
+	for (int i=0;i<dat.numberparticles;i++)
+		{
+			if (dat.particlesuse[i]==false)
+				{
+					dat.particles.Particles[i]->Tag = -1000;
+					dat.check =true;
+				}
+		}
+	if (dat.check)
+	{
+		Array <int> delpar;
+		delpar.Push(-1000);
+		cout <<delpar[0] << "\n";
+		cout << "deleting \n";
+		dat.particles.DelParticles(delpar);
+	}
 	// export results
 	savedomain(dat);
 	textout (dat);
