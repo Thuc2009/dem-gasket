@@ -357,10 +357,6 @@ int main()
 			cout << "deleting \n";
 			dat.particles.DelParticles(delpar);
 		}
-		for (int i=0; i<dat.particles.Particles.Size(); i++)
-			{
-				dat.particles.Particles[i]->Index=i;
-			}
 		cout << "save files \n";
 		dat.particles.WriteXDMF(dat.outputdomain.c_str());// export to draw visual results
 		dat.particles.Save(dat.outputdomain.c_str());
