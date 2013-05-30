@@ -124,8 +124,17 @@ double interpolation (double x1,double x2, double y1,double y2,double x3);
 int randomselect(data&dat, int max);
 double constriction(data&dat, int m0);
 // main procedure
-int main()
+int main(int argc, char**argv)try
 {
+	string filename;
+	if (argc<2)
+		{
+			filename = "sand.csd";
+		}
+	else
+		{
+			filename = argv[1];
+		}
 	data dat;
 	dat.check = true;
 	dat.particlereuse = false;
@@ -133,7 +142,7 @@ int main()
 	int fraction=0;
 	int count =0;
 	int usingparticle;
-
+	cout << "Reading data \n";
 	ifstream datain;
 	//cout << "Welcome to CSD program \n";
 	//cout << "Enter data file name: ";
@@ -152,10 +161,34 @@ int main()
 	datain >> dat.density; 			datain.ignore(200,'\n'); 																								// density of soil might not a constant
 	datain >> dat.porosity;			datain.ignore(200,'\n');
 	datain >> dat.maxfraction; 		datain.ignore(200,'\n');
-	datain >> dat.volume;			datain.ignore(200,'\n');
+	if (dat.specimentype.compare("Sphere")==0)
+		{
+			datain>>dat.specimen[0];
+			dat.specimen[0]/=2;
+			dat.volume=4./3.*M_PI*pow(dat.specimen[0],3.);
+		}
+	else if(dat.specimentype.compare("Cube")==0)
+		{
+			for (int i=0; i<3; i++)
+				{
+					datain>>dat.specimen[i];
+					dat.specimen[i]/=2;
+				}
+			dat.volume=8*dat.specimen[0]*dat.specimen[1]*dat.specimen[2];
+		}
+	else if((dat.specimentype.compare("Cylinder")==0))
+		{
+			for (int i=0; i<2; i++)
+				{
+					datain>>dat.specimen[i];
+					dat.specimen[i]/=2;
+				}
+			dat.volume=M_PI*pow(dat.specimen[0],2.)*dat.specimen[1];
+		}
+									datain.ignore(200,'\n');
 	datain >> dat.approximation;	datain.ignore(200,'\n');
 	datain >> dat.GSD;				datain.ignore(200,'\n');
-
+	cout << dat.maxfraction <<"\n";
 	for (int i=1; i<dat.GSD+1;i++)
 		{
 			datain >> fraction;
@@ -173,6 +206,7 @@ int main()
 	dat.density = dat.density/1000.0;																			// transfer density from g/cm3 to g/mm3
 	gsdgenerate(dat);																																		// Generate gsd
 	// choose again volume
+	cout << "Calculating intervals \n";
 	dat.choice = false;
 	while (!dat.choice)
 		{
@@ -196,13 +230,13 @@ int main()
 			//	}
 			dat.choice =true; 																	// autocheck
 		}
+	cout << "preparing list \n";
 	listprepare(dat);																			// generate list of particles with confirmed volume
 	//generate specimen;
 	if (dat.specimentype.compare("Cube")==0)
 		{
 			for (int i =0; i<3; i++)
 				{
-					dat.specimen[i]= pow(dat.volume,1.0/3.0)/2;
 					dat.specimen[i]*=dat.factor[i];
 				}
 			//Vec3_t dummy(dat.specimen[0],0,0);
@@ -210,14 +244,18 @@ int main()
 		}
 	else if (dat.specimentype.compare("Sphere")==0)
 		{
-			for (int i = 0; i<3; i++)
-				{
-					dat.specimen[i]=pow((3.0 * dat.volume /8.0/ acos(0)),(1.0/3.0));
-					dat.specimen[i]*=dat.factor[i];
-				}
+			dat.specimen[0]*=dat.factor[0];
+		}
+	else if (dat.specimentype.compare("Cylinder")==0)
+		{
+			for (int i =0; i<2; i++)
+					{
+						dat.specimen[i]*=dat.factor[i];
+					}
 		}
 	dat.numberunusedparticles = dat.numberparticles;
 	// generate basic tetrahedron
+	cout << "generating basic tetrahedron \n";
 	double r[3];
 	dat.usingparticle = dat.numberparticles -1;
 	dat.usinginterval = dat.numberintervals -1;
@@ -243,8 +281,8 @@ int main()
 			useparticle(dat, dat.usingparticle);
 		}
 	// first loop for putting particles
+	cout << "first loop running \n";
 	int usinginterval = dat.usinginterval;
-	//screenreport(dat);
 	while ((dat.numberunusedparticles> 0)and(dat.numberopenfaces > 0))
 		{
 			while (dat.particlesuse[dat.usingparticle])
@@ -275,13 +313,17 @@ int main()
 							break;
 						}
 				}
+			//cout << dat.numberunusedparticles <<"\n";
+			if (dat.numberunusedparticles ==17144)
+				{
+					dat.check=true;
+				}
 			usingparticle =randomselect(dat, dat.usinginterval);														// select particle randomly
 			tryputparticle(dat,usingparticle, dat.usingface);
 			closeface(dat, dat.usingface);
 			// build new tetrahedron with new faces
 			if (dat.checkradius and dat.checkdistance)
 				{
-
 					createtetrahedron(dat, dat.usingface, dat.temproraryparticle);										// create new tetrahedron
 					//screenreport(dat);
 					if (dat.particlereuse)
@@ -315,6 +357,7 @@ int main()
 	savedomain(dat);
 	textout (dat);
 }
+MECHSYS_CATCH
 // function
 inline double interpolation (double x1,double x2, double y1,double y2,double x3)
 	{
@@ -795,12 +838,12 @@ inline void tryputparticle(data&dat,int p0, int m0)
 										if ( (!dat.checkdistance) or (!dat.checkoverlap))
 											{
 												distanceoverlap = dot(dat.particles.Particles[dat.overlappingpoint]->x - dat.particles.Particles[dat.faces[usingface].points[0]]->x, dat.faces[usingface].normal);
-												while ((dat.faces[usingface].faceuse*distanceoverlap> -dat.approximation))							// if overlap with particle from other side of face then move particle
+												while ((dat.faces[usingface].faceuse*distanceoverlap> -dat.approximation)and(!dat.checkoverlap)and(dat.checkdistance))							// if overlap with particle from other side of face then move particle
 													{
 														moveon(dat,dat.temproraryparticle,usingface);
 														checkoverlap(dat, dat.temproraryparticle);
 														checkdistance(dat,dat.temproraryparticle);
-														if (!dat.checkoverlap)
+														if (!dat.checkoverlap) //how about not overlap anymore ?
 															{
 																distanceoverlap = dot(dat.particles.Particles[dat.overlappingpoint]->x - dat.particles.Particles[dat.faces[usingface].points[0]]->x, dat.faces[usingface].normal);
 															}

@@ -1,0 +1,4 @@
+CSDs	domain file name input
+CSDaf	domain file name output
+box boundary condition "box" "cylinder"
+8.0 8.0 12.0 size of boundary

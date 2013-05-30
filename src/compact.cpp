@@ -7,7 +7,7 @@ struct UserData
 	double pressure;
 };
 
-void report (DEM::Domain & particles, void *UD)
+void Report (DEM::Domain & particles, void *UD)
 {
 	//UserData & dat = (*static_cast<UserData *>(UD));
 	String fn;
@@ -19,6 +19,23 @@ void report (DEM::Domain & particles, void *UD)
 
 int main(int argc, char **argv) try
 {
+	string filename;
+	string filename1;
+	if (argc<2)
+		{
+			filename = "compact.drp";
+			filename1 = "compact.par";
+		}
+	else if (argc <3)
+		{
+			filename = argv[1];
+			filename1 = "compact.par";
+		}
+	else
+		{
+			filename =argv[1];
+			filename1 =argv[2];
+		}
 	int count1 =0;
 	int count2 =0;
 	double Kn;
@@ -43,14 +60,13 @@ int main(int argc, char **argv) try
 	DEM::Domain particles;
 	//DEM::Domain particlesbefore;
 	Array<Vec3_t> posbefore;
-	string datafile="compact.drp";
 	string domainin;
 	string domainout;
 	int tag;
 	String axis;
 	double force;
 	ifstream datain;
-	datain.open(datafile.c_str());
+	datain.open(filename.c_str());
 	datain >> domainin; 				datain.ignore(200,'\n');
 	datain >> domainout;				datain.ignore(200,'\n');
 	datain >> tag;						datain.ignore(200,'\n');
@@ -58,7 +74,7 @@ int main(int argc, char **argv) try
 	datain >> force;					datain.ignore(200,'\n');
 	datain.close();
 	particles.Load(domainin.c_str());
-	datain.open("compact.par");
+	datain.open(filename1.c_str());
 	datain >> Kn;				datain.ignore(200,'\n');
 	datain >> Kt;				datain.ignore(200,'\n');
 	datain >> Gn;				datain.ignore(200,'\n');
@@ -106,10 +122,11 @@ int main(int argc, char **argv) try
         		P.Set(/*Tag*/-i*numbershapes-j,"Kn Kt Gn Gt Mu",Kn,Kt,Gn,Gt,Mu);
         	}
     }
+    particles.SetProps(P);
     cout << "set parameters \n";
     particles.Alpha = Alpha;
     int time=0;
-    particles.Solve  (/*tf*/tf, /*dt*/dt, /*dtOut*/dtout, NULL, &report, /*filekey*/filekey.c_str(),/*Visit visualization*/visualization,/*N_proc*/processornumber, /*kinematic energy*/Kinematicenergy);
+    particles.Solve  (/*tf*/tf, /*dt*/dt, /*dtOut*/dtout, NULL, &Report, /*filekey*/filekey.c_str(),/*Visit visualization*/visualization,/*N_proc*/processornumber, /*kinematic energy*/Kinematicenergy);
     particles.Save (domainout.c_str());
     cout << "solve domain \n";
 	return 0;

@@ -1,9 +1,4 @@
-#include <iostream>
-#include <cmath>
 #include <mechsys/dem/domain.h>
-#include <mechsys/util/fatal.h>
-#include <mechsys/mesh/structured.h>
-#include <mechsys/mesh/unstructured.h>
 // variable declaration
 using namespace std;
 using namespace DEM;
@@ -110,8 +105,17 @@ void textout (data& dat);
 void useparticle(data & dat, int p0);
 double interpolation (double x1,double x2, double y1,double y2,double x3);
 // main procedure
-int main()
+int main(int argc, char** argv) try
 	{
+	string filename;
+	if (argc<2)
+		{
+			filename = "sand.csd";
+		}
+	else
+		{
+			filename = argv[1];
+		}
 	data dat;
 	dat.check = true;
 	dat.particlereuse = false;
@@ -126,9 +130,10 @@ int main()
 	//cout << "Welcome to CSD program \n";
 	//cout << "Enter data file name: ";
 	//cin >> dat.datafile;
+
 	cout << "Reading data \n";
-	dat.datafile = "sand.csd";
-	datain.open(dat.datafile.c_str());
+	cout << filename << "\n";
+	datain.open(filename.c_str());
 	//if (!datain.good())
 	//	{
 	//		dat.datafile = "sand.csd";
@@ -141,9 +146,34 @@ int main()
 	datain >> dat.density; 			datain.ignore(200,'\n'); 																								// density of soil might not a constant
 	datain >> dat.porosity;			datain.ignore(200,'\n');
 	datain >> dat.maxfraction; 		datain.ignore(200,'\n');
-	datain >> dat.volume;			datain.ignore(200,'\n');
+	if (dat.specimentype.compare("Sphere")==0)
+		{
+			datain>>dat.specimen[0];
+			dat.specimen[0]/=2;
+			dat.volume=4./3.*M_PI*pow(dat.specimen[0],3.);
+		}
+	else if(dat.specimentype.compare("Cube")==0)
+		{
+			for (int i=0; i<3; i++)
+				{
+					datain>>dat.specimen[i];
+					dat.specimen[i]/=2;
+				}
+			dat.volume=8*dat.specimen[0]*dat.specimen[1]*dat.specimen[2];
+		}
+	else if((dat.specimentype.compare("Cylinder")==0))
+		{
+			for (int i=0; i<2; i++)
+				{
+					datain>>dat.specimen[i];
+					dat.specimen[i]/=2;
+				}
+			dat.volume=M_PI*pow(dat.specimen[0],2.)*dat.specimen[1];
+		}
+									datain.ignore(200,'\n');
 	datain >> dat.approximation;	datain.ignore(200,'\n');
 	datain >> dat.GSD;				datain.ignore(200,'\n');
+	cout << dat. maxfraction << "\n";
 	for (int i=1; i<dat.GSD+1;i++)
 		{
 			datain >> fraction;
@@ -192,20 +222,21 @@ int main()
 		{
 			for (int i =0; i<3; i++)
 				{
-					dat.specimen[i]= pow(dat.volume,1.0/3.0)/2;
 					dat.specimen[i]*=dat.factor[i];
 				}
-
 			//Vec3_t dummy(dat.specimen[0],0,0);
 			//dat.particles.AddPlane(-1,dummy,0.1,2*dat.specimen[0],2*dat.specimen[0],1.0,0.5*M_PI,&OrthoSys::e1);
 		}
 	else if (dat.specimentype.compare("Sphere")==0)
 		{
-			for (int i = 0; i<3; i++)
-				{
-					dat.specimen[i]=pow((3.0 * dat.volume /8.0/ acos(0)),(1.0/3.0));
-					dat.specimen[i]*=dat.factor[i];
-				}
+			dat.specimen[0]*=dat.factor[0];
+		}
+	else if (dat.specimentype.compare("Cylinder")==0)
+		{
+			for (int i =0; i<2; i++)
+					{
+						dat.specimen[i]*=dat.factor[i];
+					}
 		}
 	cout << "Create basic face \n";
 	dat.numberunusedparticles = dat.numberparticles;
@@ -362,6 +393,7 @@ int main()
 		dat.particles.Save(dat.outputdomain.c_str());
 		textout (dat);
 	}
+MECHSYS_CATCH
 // function
 inline double interpolation (double x1,double x2, double y1,double y2,double x3)
 	{
@@ -446,6 +478,17 @@ inline void checkdistance(data&dat, int p0)
 		else if (dat.specimentype.compare("Sphere")==0)
 			{
 				if (norm(dat.particles.Particles[p0]->x)+dat.particles.Particles[p0]->Props.R>dat.specimen[0])
+					{
+						dat.checkdistance=false;
+					}
+			}
+		else if (dat.specimentype.compare("Cylinder")==0)
+			{
+				if (abs(dat.particles.Particles[p0]->x(2))+dat.particles.Particles[p0]->Props.R > dat.specimen[1])
+					{
+						dat.checkdistance=false;
+					}
+				else if (abs(pow(pow(dat.particles.Particles[p0]->x(0),2.)+pow(dat.particles.Particles[p0]->x(1),2.),0.5))+dat.particles.Particles[p0]->Props.R>dat.specimen[0])
 					{
 						dat.checkdistance=false;
 					}
@@ -677,7 +720,9 @@ inline void putparticle(data & dat, int p0, int m0)
 inline void textout (data & dat)
 	{
 		ofstream dataout;																							// export to text file
-		dataout.open("sand.out");
+		String fn;
+		fn.Printf    ("%s.%s", dat.outputdomain.c_str(), "out");
+		dataout.open(fn.c_str());
 		dataout << dat.numberparticles << " number of particles" << "\n";
 		dataout << dat.numberunusedparticles << " number of unused particles" << "\n";
 		dataout << dat.numberfaces << " number of faces" << "\n";

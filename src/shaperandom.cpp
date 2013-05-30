@@ -142,6 +142,15 @@ double getinterval (data&dat, int p0);
 // main procedure
 int main(int argc, char **argv) try
 	{
+	string filename;
+	if (argc<2)
+		{
+			filename = "sand.csd";
+		}
+	else
+		{
+			filename = argv[1];
+		}
 	data dat;
 	dat.check = true;
 	dat.particlereuse = false;
@@ -158,8 +167,7 @@ int main(int argc, char **argv) try
 	//cout << "Welcome to CSD program \n";
 	//cout << "Enter data file name: ";
 	//cin >> dat.datafile;
-	dat.datafile = "sand.csd";
-	datain.open(dat.datafile.c_str());
+	datain.open(filename.c_str());
 	//if (!datain.good())
 	//	{
 	//		dat.datafile = "sand.csd";
@@ -172,7 +180,32 @@ int main(int argc, char **argv) try
 	datain >> dat.density; 			datain.ignore(200,'\n'); 																								// density of soil might not a constant
 	datain >> dat.porosity;			datain.ignore(200,'\n');
 	datain >> dat.maxfraction; 		datain.ignore(200,'\n');
-	datain >> dat.volume;			datain.ignore(200,'\n');
+	if (dat.specimentype.compare("Sphere")==0)
+		{
+			datain>>dat.specimen[0];
+			dat.specimen[0]/=2;
+			dat.volume=4./3.*M_PI*pow(dat.specimen[0],3.);
+		}
+	else if(dat.specimentype.compare("Cube")==0)
+		{
+			for (int i=0; i<3; i++)
+				{
+					datain>>dat.specimen[i];
+					dat.specimen[i]/=2;
+				}
+			dat.volume=8*dat.specimen[0]*dat.specimen[1]*dat.specimen[2];
+		}
+	else if((dat.specimentype.compare("Cylinder")==0))
+		{
+			for (int i=0; i<2; i++)
+				{
+					datain>>dat.specimen[i];
+					dat.specimen[i]/=2;
+				}
+			dat.volume=M_PI*pow(dat.specimen[0],2.)*dat.specimen[1];
+		}
+									datain.ignore(200,'\n');
+	datain >> dat.approximation;	datain.ignore(200,'\n');
 	datain >> dat.GSD;
 	datain >> dat.numbershapes;		datain.ignore(200,'\n');
 	for (int i=1; i<dat.GSD+1;i++)
@@ -234,20 +267,21 @@ int main(int argc, char **argv) try
 		{
 			for (int i =0; i<3; i++)
 				{
-					dat.specimen[i]= pow(dat.volume,1.0/3.0)/2;
 					dat.specimen[i]*=dat.factor[i];
 				}
-
 			//Vec3_t dummy(dat.specimen[0],0,0);
 			//dat.particles.AddPlane(-1,dummy,0.1,2*dat.specimen[0],2*dat.specimen[0],1.0,0.5*M_PI,&OrthoSys::e1);
 		}
 	else if (dat.specimentype.compare("Sphere")==0)
 		{
-			for (int i = 0; i<3; i++)
-				{
-					dat.specimen[i]=pow((3.0 * dat.volume /8.0/ acos(0)),(1.0/3.0));
-					dat.specimen[i]*=dat.factor[i];
-				}
+			dat.specimen[0]*=dat.factor[0];
+		}
+	else if (dat.specimentype.compare("Cylinder")==0)
+		{
+			for (int i =0; i<2; i++)
+					{
+						dat.specimen[i]*=dat.factor[i];
+					}
 		}
 	dat.numberunusedparticles = dat.numberparticles;
 	// generate basic tetrahedron

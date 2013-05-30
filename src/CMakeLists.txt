@@ -25,10 +25,13 @@ SET(PROGS
     randomCSD
     dem
     drop
+    dropfactor
     droppart
     sample
     shape
+    slicesphere
     diverseshape
+    suffusion
     test
     visualisation)
 

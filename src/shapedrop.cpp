@@ -44,22 +44,6 @@ struct interval																// structure of interval of GSD
 	double equaldiameter[10];
 	double rectangularboxsize[3];
 };
-struct tetrahedron
-{
-	int points[4];
-	int faces[4];
-	double poreradius;
-	Vec3_t porecentre;
-};
-struct face
-{
-	int points[3];
-	int point;
-	int faceuse;
-	double constrictionsize;
-	Vec3_t normal;
-	Vec3_t constriction;
-};
 struct data
 {
 	bool choice;
@@ -139,15 +123,6 @@ double getinterval (data&dat, int p0);
 // main procedure
 int main(int argc, char **argv) try
 	{
-	string filename;
-	if (argc<2)
-		{
-			filename = "sand.csd";
-		}
-	else
-		{
-			filename = argv[1];
-		}
 	data dat;
 	dat.check = true;
 	dat.particlereuse = false;
@@ -163,7 +138,8 @@ int main(int argc, char **argv) try
 	//cout << "Welcome to CSD program \n";
 	//cout << "Enter data file name: ";
 	//cin >> dat.datafile;
-	datain.open(filename.c_str());
+	dat.datafile = "test.csd";
+	datain.open(dat.datafile.c_str());
 	//if (!datain.good())
 	//	{
 	//		dat.datafile = "sand.csd";
@@ -176,32 +152,7 @@ int main(int argc, char **argv) try
 	datain >> dat.density; 			datain.ignore(200,'\n'); 																								// density of soil might not a constant
 	datain >> dat.porosity;			datain.ignore(200,'\n');
 	datain >> dat.maxfraction; 		datain.ignore(200,'\n');
-	if (dat.specimentype.compare("Sphere")==0)
-		{
-			datain>>dat.specimen[0];
-			dat.specimen[0]/=2;
-			dat.volume=4./3.*M_PI*pow(dat.specimen[0],3.);
-		}
-	else if(dat.specimentype.compare("Cube")==0)
-		{
-			for (int i=0; i<3; i++)
-				{
-					datain>>dat.specimen[i];
-					dat.specimen[i]/=2;
-				}
-			dat.volume=8*dat.specimen[0]*dat.specimen[1]*dat.specimen[2];
-		}
-	else if((dat.specimentype.compare("Cylinder")==0))
-		{
-			for (int i=0; i<2; i++)
-				{
-					datain>>dat.specimen[i];
-					dat.specimen[i]/=2;
-				}
-			dat.volume=M_PI*pow(dat.specimen[0],2.)*dat.specimen[1];
-		}
-									datain.ignore(200,'\n');
-	datain >> dat.approximation;	datain.ignore(200,'\n');
+	datain >> dat.volume;			datain.ignore(200,'\n');
 	datain >> dat.GSD;
 	datain >> dat.numbershapes;		datain.ignore(200,'\n');
 	for (int i=1; i<dat.GSD+1;i++)
@@ -210,12 +161,11 @@ int main(int argc, char **argv) try
 			datain >> dat.gsd[fraction];
 			dat.gsd1.push_back(fraction);
 			datain >> dat.densities[fraction];
-			dat.densities[fraction] /=1000;																													// change to g/mm3
 			for (int j =0; j<dat.numbershapes;j++)
 				{
 					datain >>dat.shapefactors[fraction][j];
 				}
-									datain.ignore (200,'\n');
+			datain.ignore (200,'\n');
 		}
 	for (int i=0; i<3; i++)
 		{
@@ -229,7 +179,6 @@ int main(int argc, char **argv) try
 		}
 									datain.ignore (200,'\n');
 	datain.close();
-	dat.density = dat.density/1000.0;																														// transfer density from g/cm3 to g/mm3
 	gsdgenerate(dat);																																		// Generate gsd
 	// choose again volume
 	dat.choice = false;
@@ -276,175 +225,43 @@ int main(int argc, char **argv) try
 			//	}
 			dat.choice =true; 																	// autocheck
 		}
-	listprepare(dat);																			// generate list of particles with confirmed volume
-	cout << "created list of particles \n";
 	//generate specimen;
 	if (dat.specimentype.compare("Cube")==0)
 		{
 			for (int i =0; i<3; i++)
 				{
+					dat.specimen[i]= pow(dat.volume,1.0/3.0)/2;
 					dat.specimen[i]*=dat.factor[i];
 				}
+
 			//Vec3_t dummy(dat.specimen[0],0,0);
 			//dat.particles.AddPlane(-1,dummy,0.1,2*dat.specimen[0],2*dat.specimen[0],1.0,0.5*M_PI,&OrthoSys::e1);
 		}
 	else if (dat.specimentype.compare("Sphere")==0)
 		{
-			dat.specimen[0]*=dat.factor[0];
-		}
-	else if (dat.specimentype.compare("Cylinder")==0)
-		{
-			for (int i =0; i<2; i++)
-					{
-						dat.specimen[i]*=dat.factor[i];
-					}
+			for (int i = 0; i<3; i++)
+				{
+					dat.specimen[i]=pow((3.0 * dat.volume /8.0/ acos(0)),(1.0/3.0));
+					dat.specimen[i]*=dat.factor[i];
+				}
 		}
 	dat.numberunusedparticles = dat.numberparticles;
-	// generate basic tetrahedron
-	double r[3];
-	dat.usingparticle = dat.numberparticles -1;
-	dat.usinginterval = dat.numberintervals -1;
-	while (dat.usinginterval == false)
+	// Generate particles
+
+	for (int i=0; i< dat.particles.Particles.Size(); i++)
 		{
-			dat.usinginterval -=1;
+			if (dat.particlesuse[i]==false)
+				{
+					dat.particles.Particles[i]->Tag -=100*dat.numbershapes;
+				}
 		}
-	for (int i =0; i< 3; i++)
-		{
-			r[i]=equalradius(dat, dat.usingparticle-i);
-		}
-	dat.particles.Particles[dat.usingparticle]->Position(Vec3_t(0.,0.,0.));
-	dat.particles.Particles[dat.usingparticle-1]->Position(Vec3_t(r[0]+r[1],0.,0.));
-	double x = (pow(r[0]+r[1],2)+pow(r[0]+r[2],2)-pow(r[1]+r[2],2))/2/(r[0]+r[1]);
-	dat.particles.Particles[dat.usingparticle-2]->Position(Vec3_t(x, pow(pow(r[0]+r[2],2)-pow(x,2),0.5),0));
-	createface(dat, dat.usingparticle, dat.usingparticle-1, dat.usingparticle-2,dat.usingparticle-3);								//create face from 3 particles
-	putparticle(dat,dat.usingparticle-3,0);																							//put first particle on first face, this face will put on twice
-	createtetrahedron(dat,0,dat.usingparticle-3);
-	dat.faces[0].faceuse=1;																											// mark used side
-	dat.usingface=0;
-	dat.numberfaces =1;
-	dat.numberopenfaces =1;
-	for (int i=0; i<4; i++)																							//mark used particles
-		{
-			useparticle(dat, dat.usingparticle - i);
-		}
-	dat.usingparticle -=4;
-	dat.numberunusedparticles -=4;
-	usingparticle = dat.usingparticle;
-	cout << "created base \n";
+	// export results
+	savedomain(dat);
 	textout(dat);
-	// first loop for putting particles
-	int usinginterval = dat.usinginterval;
-	while ((dat.usingparticle > -1)and(dat.numberopenfaces > 0))
-		{
-			while (dat.particlesuse[dat.usingparticle])
-				{
-					dat.usingparticle -=1;
-					if (dat.usingparticle==0)
-						{
-							break;
-						}
-					}
-			while (dat.faces[dat.usingface].faceuse == 0)
-				{
-					dat.usingface +=1;
-					if (dat.usingface == dat.numberfaces)
-						{
-							break;
-						}
-				}
-			if (dat.usingparticle ==5)
-				{
-					dat.check =true;
-				}
-			usingparticle = dat.usingparticle;
-			usingface = dat.usingface;
-			putparticle(dat,usingparticle,dat.usingface);
-			checkoverlap(dat, usingparticle);
-			checkdistance(dat, usingparticle);
-			if (!dat.checkradius)
-				{
-					closeface(dat, dat.usingface);
-				}
-			else if (!dat.checkdistance)
-				{
-					if (dat.fillingtype.compare("Layer")==0)
-						{
-							closeface(dat, dat.usingface);												// ---------------------------should calculate pore space with boundary
-						}
-					else if (dat.fillingtype.compare("Random")==0)
-						{
-							closeface(dat, dat.usingface);
-						}
-				}
-			else if (!dat.checkoverlap)
-				{
-					distance1 = dot(dat.particles.Particles[dat.faces[dat.usingface].point]->x - dat.particles.Particles[dat.faces[dat.usingface].points[0]]->x, dat.faces[dat.usingface].normal);
-					while (!dat.checkoverlap)
-						{
-							distance2 = dot(dat.particles.Particles[dat.overlappingpoint]->x - dat.particles.Particles[dat.faces[dat.usingface].points[0]]->x, dat.faces[dat.usingface].normal);
-							if (distance1*distance2<0)
-								{
-									usingparticle = dat.overlappingpoint;
-									dat.particlereuse = true;
-									dat.checkoverlap=true;
-								}
-							else
-								{
-									moveon(dat, usingparticle);
-									checkoverlap(dat, usingparticle);
-									checkdistance(dat, usingparticle);								// to be sure that moving particle is not out of boundary
-									if (!dat.checkdistance)
-										{
-											closeface(dat, dat.usingface);
-											dat.checkoverlap =true;									// now checkdistance is false
-										}
-								}
-						}
-				}
-			// build new tetrahedron with new faces
-				if (dat.checkradius and dat.checkoverlap and dat.checkdistance)
-					{
-						closeface(dat, dat.usingface);
-						createtetrahedron(dat, dat.usingface, usingparticle);										// create new tetrahedron
-						if (dat.particlereuse)
-							{
-								dat.particlereuse = false;
-							}
-						else
-							{
-								useparticle(dat, usingparticle);													// mark particle used
-								dat.usingparticle -=1;
-								dat.numberunusedparticles -=1;
-							}
-			//			dat.intervals[usinginterval].usingparticle -=1;
-			//			if (dat.intervals[usinginterval].usingparticle < dat.intervals[usinginterval].firstparticle)
-			//				{
-			//					dat.intervals[usinginterval].ability=false;
-			//					usinginterval -=1;
-			//					if (usinginterval <0)
-			//						{
-			//							dat.check =true;
-			//						}
-			//				}
-					}
-				dat.usingface+=1;
-				//cout << dat.usingparticle << "\n";
-			}
-		cout << "put particles \n";
-		for (int i=0; i< dat.particles.Particles.Size(); i++)
-			{
-				if (dat.particlesuse[i]==false)
-					{
-						dat.particles.Particles[i]->Tag -=100*dat.numbershapes;
-					}
-			}
-		// export results
-		savedomain(dat);
-		textout(dat);
-		cout << "saved domain \n";
-	    return 0;
-	}
-	MECHSYS_CATCH
+	cout << "saved domain \n";
+    return 0;
+}
+MECHSYS_CATCH
 // function
 inline double equalradius(data&dat, int p0)
 	{
@@ -559,178 +376,6 @@ inline void calculateintervals(data & dat)																							//prepare a lis
 					}
 			}
 	}
-inline void checkdistance(data&dat, int p0)
-	{
-		dat.checkdistance =true;
-		if (dat.specimentype.compare("Cube")==0)
-			{
-				for (int i = 0; i < 3; i++)
-					{
-						if (abs(dat.particles.Particles[p0]->x(i))+equalradius(dat,p0) > dat.specimen[i])
-							{
-								dat.checkdistance= false;
-							}
-					}
-			}
-		else if (dat.specimentype.compare("Sphere")==0)
-			{
-				if (norm(dat.particles.Particles[p0]->x)+ equalradius(dat,p0)>dat.specimen[0])
-					{
-						dat.checkdistance=false;
-					}
-			}
-	}
-inline void checkoverlap(data&dat, int p0)
-	{
-		dat.checkoverlap =true;
-		dat.overlappingpoint =-1;
-		double overlapdistance = -0.00001;																												// default overlappint distance, to avoid calculation error
-		double r1 =equalradius(dat,p0);
-		double r2=0;
-		for ( int i = 0;  i < dat.numberparticles; i++)
-			{
-				if ((dat.particlesuse[i])and(!(i==p0)))
-					{
-						double distance = norm(dat.particles.Particles[p0]->x-dat.particles.Particles[i]->x) -r1 - equalradius(dat,i);
-						if (distance < - dat.approximation)
-							{
-								if (overlapdistance > distance)
-									{
-										dat.overlappingpoint = i;
-										overlapdistance = distance;
-									}
-								dat.checkoverlap =false;
-							}
-					}
-			}
-	}
-inline void closeface(data & dat, int m0)
-	{
-		dat.faces[m0].faceuse =0;
-		dat.numberopenfaces -=1;
-	}
-inline void createface(data & dat, int p0, int p1, int p2,int p3)
-	{
-		// sort particles by radius
-		int sort[3];
-		sort[0]=p0;
-		sort[1]=p1;
-		sort[2]=p2;
-		int count;
-		for (int i =0; i<2;i++)
-			{
-				for (int j=1; j<3; j++)
-				{
-					if (sort[i]< sort[j])
-						{
-							count= sort[i];
-							sort[i]=sort[j];
-							sort[j]=count;
-						}
-				}
-			}
-		// create face
-		face facetemprorary;
-		Array<Vec3_t> V(3);
-		for (int i=0;i<3;i++)
-			{
-				facetemprorary.points[i]=sort[i];
-				V[i]=dat.particles.Particles[sort[i]]->x;
-			}
-		// need to calculate constriction ?
-		DEM::Face facedemtemprorary(V);															// add face in library
-		facedemtemprorary.Normal(facetemprorary.normal);
-		facetemprorary.normal /= norm(facetemprorary.normal);
-		facetemprorary.point = p3;
-		double distance = dot(dat.particles.Particles[p3]->x - dat.particles.Particles[facetemprorary.points[0]]->x, facetemprorary.normal);
-		if (distance>0)
-			{
-				facetemprorary.faceuse = 1;
-			}
-		else
-			{
-				facetemprorary.faceuse =-1;
-			}
-		if (dat.particlereuse)
-			{
-				dat.facereuse =false;
-				for (int i=0; i< dat.numberfaces; i++)
-					{
-						if (facetemprorary.points[0]== dat.faces[i].points[0])
-							{
-								if ((facetemprorary.points[1]== dat.faces[i].points[1])and(facetemprorary.points[1]== dat.faces[i].points[1]))
-									{
-										if (facetemprorary.faceuse*dat.faces[i].faceuse <0)
-											{
-												closeface(dat,i);
-											}
-										else
-											{
-												dat.check =true;
-											}
-										dat.facereuse=true;
-										dat.facereusenumber = i;
-									}
-							}
-					}
-			}
-		if (dat.facereuse)
-			{
-			dat.facereuse = false;
-			}
-		else
-		{
-			dat.faces.push_back(facetemprorary);												// add user-defined face
-			dat.numberfaces +=1;
-			dat.numberopenfaces +=1;
-		}
-	}
-inline void createtetrahedron(data & dat, int m0, int p0)										// no need to create tetrahedron at the first step because the tetrahedron net must be generated before the second step
-	{
-		tetrahedron temprorarytetrahedron;
-		temprorarytetrahedron.faces[0]= m0;
-		createface(dat, dat.faces[m0].points[0], dat.faces[m0].points[1], p0, dat.faces[m0].points[2]);
-		if (dat.facereuse)
-			{
-				temprorarytetrahedron.faces[1]= dat.facereusenumber;
-				dat.facereuse=false;
-			}
-		else
-			{
-				temprorarytetrahedron.faces[1]= dat.numberfaces-1;
-			}
-		createface(dat, dat.faces[m0].points[0], dat.faces[m0].points[2], p0, dat.faces[m0].points[1]);
-		if (dat.facereuse)
-			{
-				temprorarytetrahedron.faces[2]= dat.facereusenumber;
-				dat.facereuse=false;
-			}
-		else
-			{
-				temprorarytetrahedron.faces[2]= dat.numberfaces-1;
-			}
-		createface(dat, dat.faces[m0].points[1], dat.faces[m0].points[2], p0, dat.faces[m0].points[0]);
-		if (dat.facereuse)
-			{
-				temprorarytetrahedron.faces[3]= dat.facereusenumber;
-				dat.facereuse=false;
-			}
-		else
-			{
-				temprorarytetrahedron.faces[3]= dat.numberfaces-1;
-			}
-		dat.tetrahedrons.push_back(temprorarytetrahedron);
-	}
-
-inline void establishlocalsystem(data&dat, int m0)
-	{
-		dat.localsystem[0]= dat.particles.Particles[dat.faces[m0].points[1]]->x - dat.particles.Particles[dat.faces[m0].points[0]]->x;
-		dat.localsystem[0]= dat.localsystem[0]/norm(dat.localsystem[0]);							// e1 vector
-		dat.localsystem[2]= dat.faces[m0].normal;													// e3 vector
-		dat.localsystem[1]= -cross(dat.localsystem[0],dat.localsystem[2]);
-		dat.localsystem[1]= dat.localsystem[1]/norm(dat.localsystem[1]);							// may be not in need
-		dat.localroot = dat.particles.Particles[dat.faces[m0].points[0]]->x;
-	}
 inline void gsdgenerate(data & dat)
 	{
 		for (int i =0; i<dat.GSD; i++)
@@ -767,17 +412,14 @@ inline void listprepare(data & dat)																								// add particles to d
 										else if (j==1)
 											{
 												dat.particles.AddCube(-i*dat.numbershapes-j,x,0.05*dat.intervals[i].radius,dat.intervals[i].radius,dat.intervals[i].density);
-												dat.particles.Particles[dat.particles.Particles.Size()-1]->Erode(0.05*dat.intervals[i].radius);
 											}
 										else if (j==2)
 											{
 												dat.particles.AddTetra(-i*dat.numbershapes-j,x,0.05*dat.intervals[i].radius,pow(2.0,0.5)*dat.intervals[i].diameter, dat.intervals[i].density);
-												dat.particles.Particles[dat.particles.Particles.Size()-1]->Erode(0.05*dat.intervals[i].radius);
 											}
 										else if (j==3)
 											{
 												dat.particles.AddRecBox(-i*dat.numbershapes -j, x,Vec3_t(dat.intervals[i].rectangularboxsize[0],dat.intervals[i].rectangularboxsize[1],dat.intervals[i].rectangularboxsize[2]),0.05*dat.intervals[i].radius,dat.intervals[i].density);
-												dat.particles.Particles[dat.particles.Particles.Size()-1]->Erode(0.05*dat.intervals[i].radius);
 											}
 										dat.particlesuse.push_back(false);
 										count +=1;
@@ -787,50 +429,6 @@ inline void listprepare(data & dat)																								// add particles to d
 						dat.intervals[i].usingparticle =count-1;
 						dat.intervals[i].ability =true;
 					}
-			}
-	}
-inline void moveon(data & dat, int p0)
-	{
-		Vec3_t distance = dat.particles.Particles[p0]->x - dat.particles.Particles[dat.overlappingpoint]->x;
-		Vec3_t projection = dot(distance, dat.faces[dat.usingface].normal);
-		double move = sqrt(pow(equalradius(dat,p0) + equalradius(dat, dat.overlappingpoint),2.0) - pow(norm(distance),2.0)+pow(norm(projection),2.0))-norm(projection);
-		dat.finalposition = dat.particles.Particles[p0]->x - dat.faces[dat.usingface].faceuse*move*dat.faces[dat.usingface].normal;
-		dat.particles.Particles[p0]->Position(dat.finalposition);
-	}
-inline void putparticle(data & dat, int p0, int m0)
-	{
-		establishlocalsystem(dat,m0);															// calculate local coordinates system
-		dat.checkradius =false;
-		double r[4];
-		for (int i =0;i<3;i++)
-			{
-				r[i]= equalradius(dat, dat.faces[m0].points[i]);
-			}
-		r[3] = equalradius(dat,p0);
-		double x2 = norm(dat.particles.Particles[dat.faces[m0].points[1]]->x -dat.particles.Particles[dat.faces[m0].points[0]]->x);
-		double a1 = (r[0] -r[1])/x2;
-		double b1 = (pow(x2,2.)+pow(r[0],2.)-pow(r[1],2.))/2./x2;
-		double x3 = dot(dat.particles.Particles[dat.faces[m0].points[2]]->x - dat.particles.Particles[dat.faces[m0].points[0]]->x,dat.localsystem[0]);
-		double y3 = dot(dat.particles.Particles[dat.faces[m0].points[2]]->x - dat.particles.Particles[dat.faces[m0].points[0]]->x, dat.localsystem[1]);
-		double a2 = (r[0]-r[2]-a1*x3)/y3;
-		double b2 = (pow(x3,2.)+pow(y3,2.)+pow(r[0],2.)-pow(r[2],2.)-2.*b1*x3)/2./y3;
-		double x4 = a1*r[3]+b1;
-		double y4 = a2*r[3]+b2;
-		double z4 = pow(r[0]+r[3],2)-pow(a1*r[3]+b1,2)-pow(a2*r[3]+b2,2);
-		if (z4 > 0)
-			{
-				z4=-dat.faces[m0].faceuse*pow(z4,0.5);
-				Vec3_t position(x4,y4,z4);
-				Vec3_t finalposition =  dat.particles.Particles[dat.faces[m0].points[0]]->x;
-				for (int i=0; i<3; i++)
-					{
-						for (int j=0; j<3; j++)
-							{
-								finalposition(i)+= position(j)*dat.localsystem[j](i);
-							}
-					}
-				dat.particles.Particles[p0]->Position(finalposition);
-				dat.checkradius =true;
 			}
 	}
 inline void savedomain(data&dat)
@@ -861,45 +459,3 @@ inline void textout (data & dat)
 			}
 		dataout.close();
 	}
-inline void useparticle(data & dat, int p0)
-	{
-		dat.particlesuse[p0]=true;
-		int interval = abs(int(dat.particles.Particles[p0]->Tag/dat.numbershapes));
-		dat.intervals[interval].usingparticle -=1;
-		if (dat.intervals[interval].usingparticle < dat.intervals[interval].firstparticle )
-			{
-				dat.intervals[interval].ability =false;
-				if (interval == dat.usinginterval)
-					{
-						dat.usinginterval -=1;
-					}
-			}
-	}
-
-
-//inline void useparticle(data&dat, int interval, int shape, int count)
-//	{
-//		if (shape % 3 ==0)
-//			{
-//				dat.particles.AddSphere(interval*3+shape, Vec3_t(k*columnspace,j*rowspace,i*dat.intervals[dat.numberintervals-1].diameter + 0.7*sample),dat.intervals[interval].radius,dat.intervals[interval].density/*rho*/);
-//			}
-//		else if (shape%3==1)
-//			{
-//				dat.particles.AddCube(-(interval*3+shape), Vec3_t(k*columnspace,j*rowspace,i*dat.intervals[dat.numberintervals-1].diameter + 0.7*sample), dat.intervals[interval].radius/dat.roundratio /*R*/,dat.intervals[interval].diameter/*Length*/,dat.intervals[interval].density /*rho*/,M_PI/3.0,&OrthoSys::e0 );
-//			}
-//		else
-//			{
-//				dat.particles.AddTetra(-(interval*3+shape), Vec3_t(k*columnspace,j*rowspace,i*dat.intervals[dat.numberintervals-1].diameter + 0.7*sample),dat.intervals[interval].radius/dat.roundratio /*R*/,pow(2,0.5)*dat.intervals[interval].diameter/*Length*/,dat.intervals[interval].density /*rho*/,M_PI/3.0,&OrthoSys::e0 );
-//			}
-//		dat.particles.Particles[count]->Ff=dat.particles.Particles[count]->Props.m*g;
-//		dat.particles.Particles[count]->Props.Kn =dat.Kn;
-//		dat.particles.Particles[count]->Props.Kt =dat.Kt;
-//		dat.particles.Particles[count]->Props.Mu =dat.Mu;
-//		dat.numberunusedparticles -=1;
-//		dat.intervals[interval].unusedshapeparticles[shape] -=1;
-//		dat.intervals[interval].usingparticle -=1;
-//		if (dat.intervals[interval].usingparticle < dat.intervals[interval].firstparticle)
-//			{
-//			dat.intervals[interval].ability= false;
-//			}
-//	}

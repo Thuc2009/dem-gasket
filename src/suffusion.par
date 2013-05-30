@@ -1,13 +1,12 @@
 2.0e3	Kn
-1.0e3	Kt
-8.0	Gn
+2.0e3	Kt
+16.0	Gn
 0.0	Gt
-0.1 Gv
 0.2	Mu
 1.0e-6	dt
 12	tf
 0.1	dtout
-shapedrop	filekey
+spheredrop	filekey
 2	visuallation
 6	Number of processors
 20	roundratio

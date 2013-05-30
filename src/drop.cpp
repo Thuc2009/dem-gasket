@@ -1,18 +1,41 @@
 #include <mechsys/dem/domain.h>
 using namespace std;
 using namespace DEM;
-void Report (DEM::Domain & particles, void * UD)
+void Report (DEM::Domain & particles, void *UD)
 {
-	particles.Save ("drop");
+	//UserData & dat = (*static_cast<UserData *>(UD));
+	String fn;
+	fn.Printf    ("%s_%s_%04d", particles.FileKey.CStr(), "bf",particles.idx_out);
+	particles.WriteVTKContacts(fn.CStr());
+	particles.WriteBF(fn.CStr());
+	//dat.pressure = 0;
 }
 int main(int argc, char **argv) try
 {
+	string filename;
+	string filename1;
+	if (argc<2)
+		{
+			filename = "drop.drp";
+			filename1 = "drop.par";
+		}
+	else if (argc <3)
+		{
+			filename = argv[1];
+			filename1 = "drop.par";
+		}
+	else
+		{
+			filename =argv[1];
+			filename1 =argv[2];
+		}
 	int count1 =0;
 	int count2 =0;
 	double Kn;
 	double Kt;
 	double Gn;
 	double Gt;
+	double Gv;
 	double Mu;
 	double dt;
 	double tf;
@@ -29,20 +52,20 @@ int main(int argc, char **argv) try
 	DEM::Domain particles;
 	//DEM::Domain particlesbefore;
 	Array<Vec3_t> posbefore;
-	string datafile="drop.drp";
 	string domainin;
 	string domainout;
 	ifstream datain;
-	datain.open(datafile.c_str());
+	datain.open(filename.c_str());
 	datain >> domainin; 				datain.ignore(200,'\n');
 	datain >> domainout;				datain.ignore(200,'\n');
 	datain.close();
 	particles.Load(domainin.c_str());
-	datain.open("drop.par");
+	datain.open(filename1.c_str());
 	datain >> Kn;				datain.ignore(200,'\n');
 	datain >> Kt;				datain.ignore(200,'\n');
 	datain >> Gn;				datain.ignore(200,'\n');
 	datain >> Gt;				datain.ignore(200,'\n');
+	datain >> Gv;				datain.ignore(200,'\n');
 	datain >> Mu;				datain.ignore(200,'\n');
 	datain >> dt;				datain.ignore(200,'\n');
 	datain >> tf;				datain.ignore(200,'\n');
@@ -70,10 +93,10 @@ int main(int argc, char **argv) try
     Dict P;
     for (int i=0;i<numberintervals;i++)
     {
-        P.Set(/*Tag*/i*numbershapes,"Kn Kt Gn Gt Mu",Kn,Kt,Gn,Gt,Mu);
+    	P.Set(/*Tag*/i*numbershapes,"Kn Kt Gn Gt Gv Mu",Kn,Kt,Gn,Gt,Gv, Mu);
         for (int j=1; j<numbershapes; j++)
         	{
-        		P.Set(/*Tag*/-i*numbershapes-j,"Kn Kt Gn Gt Mu",Kn,Kt,Gn,Gt,Mu);
+        		P.Set(/*Tag*/-i*numbershapes-j,"Kn Kt Gn Gt Gv Mu",Kn,Kt,Gn,Gt, Gv, Mu);
         	}
     }
     particles.SetProps(P);
@@ -83,7 +106,7 @@ int main(int argc, char **argv) try
     for (size_t i=0;i<particles.Particles.Size();i++)
         {
             particles.Particles[i]->Ff = particles.Particles[i]->Props.m*g;
-            posbefore.Push(particles.Particles[i]->x);
+            //posbefore.Push(particles.Particles[i]->x);
         }
 
     //for (size_t i=0;i<particles.Particles.Size()-1;i++)
@@ -101,21 +124,21 @@ int main(int argc, char **argv) try
     //count1=0;
     particles.Solve  (/*tf*/tf, /*dt*/dt, /*dtOut*/dtout, NULL, &Report, /*filekey*/filekey.c_str(),/*Visit visualization*/visualization,/*N_proc*/processornumber, /*kinematic energy*/Kinematicenergy);
     particles.Save (domainout.c_str());
-    cout << "solve domain \n";
+    cout << "saved domain \n";
 
-    for (size_t i=0;i<particles.Particles.Size();i++)
-        {
-            //if (norm(particles.Particles[i]->x-particlesbefore.Particles[i]->x)>0.1)
-    	    if (norm(particles.Particles[i]->x-posbefore[i])>0.1)
-            {
-            	count1++;
-            }
-            if (norm(particles.Particles[i]->x-posbefore[i])> 2*particles.Particles[i]->Props.R)
-            {
-            	count2++;
-            }
-        }
-    cout << count1 << " " << count2;
+//    for (size_t i=0;i<particles.Particles.Size();i++)
+//        {
+//            //if (norm(particles.Particles[i]->x-particlesbefore.Particles[i]->x)>0.1)
+//    	    if (norm(particles.Particles[i]->x-posbefore[i])>0.1)
+//            {
+//            	count1++;
+//            }
+//            if (norm(particles.Particles[i]->x-posbefore[i])> 2*particles.Particles[i]->Props.R)
+//            {
+//            	count2++;
+//            }
+//        }
+//    cout << count1 << " " << count2;
     return 0;
 }
 MECHSYS_CATCH

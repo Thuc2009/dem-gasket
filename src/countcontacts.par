@@ -1,0 +1,11 @@
+2.0e3	Kn
+2.0e3	Kt
+1.0	Gn
+0.0	Gt
+0.2	Mu
+5.0e-6	dt
+5.0e-6	tf
+0.1	dtout
+shapedrop	filekey
+2	visuallation
+7	Number of processors
