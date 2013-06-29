@@ -168,7 +168,7 @@ int main(int argc, char** argv) try
 					datain>>dat.specimen[i];
 					dat.specimen[i]/=2;
 				}
-			dat.volume=M_PI*pow(dat.specimen[0],2.)*dat.specimen[1];
+			dat.volume=M_PI*pow(dat.specimen[0],2.)*2*dat.specimen[1];
 		}
 									datain.ignore(200,'\n');
 	datain >> dat.approximation;	datain.ignore(200,'\n');
