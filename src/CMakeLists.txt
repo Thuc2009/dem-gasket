@@ -19,7 +19,9 @@
 SET(PROGS
     apo-gasket
     compact
+    constriction
     countcontacts
+    continuousdrop
     CSD
     diverseCSD
     randomCSD
@@ -32,8 +34,7 @@ SET(PROGS
     slicesphere
     diverseshape
     suffusion
-    test
-    visualisation)
+    )
 
 FOREACH(var ${PROGS})
     ADD_EXECUTABLE        (${var} "${var}.cpp")

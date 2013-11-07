@@ -102,6 +102,23 @@ int main(int argc, char **argv) try
     //    }
 	if (starttag < 0)
 		{
+			Array <int> delpar;
+			double z =0.;
+			int top =0;
+			for (size_t i=0; i<particles.Particles.Size(); i++)
+				{
+					if (particles.Particles[i]->Tag <-999)
+						{
+							delpar.push_back(particles.Particles[i]->Tag);
+						}
+					else if (particles.Particles[i]->x[2]>z)	// find the top particles
+						{
+							z=particles.Particles[i]->x[2];
+							top = i;
+						}
+				}
+			delpar.push_back(top);
+			particles.DelParticles(delpar);
 			particles.GenBoundingBox(starttag,0.01,1.2,false);
 			for (int i=starttag; i>starttag-6; i--)
 			    {

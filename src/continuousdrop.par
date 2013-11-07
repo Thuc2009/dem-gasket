@@ -1,0 +1,19 @@
+2.0e3	Kn
+1.0e3	Kt
+8.0	Gn
+0.0	Gt
+0.1 Gv
+0.2	Mu
+1.0e-6	dt
+12	tf
+0.1	dtout
+shapedrop	filekey
+2	visuallation
+6	Number of processors
+20	roundratio
+0.0001	Alpha
+0.0001 	Kinematic engergy
+-1000 starttag
+4 number shapes
+20 number intervals
+

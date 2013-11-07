@@ -111,7 +111,6 @@ int main(int argc, char **argv) try
 	Vec3_t X2 = (Xmax+Xmin)/2-OrthoSys::e2*dot((Xmax-Xmin)/2,OrthoSys::e2);
 	Vec3_t X1 = X2 -OrthoSys::e2*dot((Xmax-Xmin)/2,OrthoSys::e2);
 	Vec3_t X0 = X1 -Vec3_t(0.,0.,size[2]);
-
 	if (boundary == "cylinder")
 		{
 			// generate bounding cylinder
@@ -158,7 +157,7 @@ int main(int argc, char **argv) try
 			particles.GetParticle(3*starttag)->FixVeloc();
 
 		}
-	particles.Save (domainout.c_str());
+//	particles.Save (domainout.c_str());
     Dict P;
     for (int i=0;i<numberintervals;i++)
     {

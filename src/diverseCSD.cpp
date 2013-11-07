@@ -29,14 +29,18 @@ struct tetrahedron
 };
 struct face
 {
+	int faceuse;
 	int points[3];
 	int point;
-	int faceuse;
+	int overlaps[3];
 	double constrictionsize;
-	Vec3_t normal;
+	double smallsizes[3];
 	Vec3_t centre;
 	Vec3_t constrictioncentre;
-
+	Vec3_t normal;
+	Vec3_t smallcentres[3];
+	Vec3_t systems[3];
+	bool reduce;
 };
 struct data
 {
@@ -95,6 +99,8 @@ struct data
 void calculateintervals(data & dat);
 void checkoverlap(data&dat, int p0);
 void checkdistance(data&dat, int p0);
+void checkface(data&dat,int m0=1001);
+void checkparticle(data&dat,int p0);
 void closeface(data&dat, int m0);
 void convertcoordinates(data & dat, Vec3_t & position, bool way);
 void createface(data & dat, int p0, int p1, int p2,int faceuse);
@@ -103,13 +109,17 @@ void establishlocalsystem(data&dat, int m0);
 void gsdgenerate(data & dat);
 void listprepare(data & dat);
 void moveon(data & dat, int p0, int m0);
+void reduceconstriction( data&dat, int m0, int overlap);
+void planeconstriction(data&dat, int m0, int p0, int p1, int overlap, int smallconstriction);
 void putparticle(data & dat, int p0, int m0);
 void savedomain(data&dat);
 void textout (data& dat);
+void textoutconstrictionsize(data&dat);
 void tryputparticle(data&dat, int p0,int m0);
 void useparticle(data & dat, int p0);
 double interpolation (double x1,double x2, double y1,double y2,double x3);
 double constrictionsize(data&dat, int p0, int p1, int p2);
+int checksphereoverlap(data&dat, double radius, Vec3_t centre);
 // main procedure
 int main(int argc, char**argv)try
 {
@@ -128,17 +138,9 @@ int main(int argc, char**argv)try
 	dat.facereuse = false;
 	int fraction=0;
 	int count =0;
-
 	ifstream datain;
-	//cout << "Welcome to CSD program \n";
-	//cout << "Enter data file name: ";
-	//cin >> dat.datafile;
+	cout << "Reading data \n";
 	datain.open(filename.c_str());
-	//if (!datain.good())
-	//	{
-	//		dat.datafile = "sand.csd";
-	//		datain.open(dat.datafile.c_str());
-	//	}
 	datain >> dat.soilname; 		datain.ignore(200,'\n');
 	datain >> dat.specimentype;		datain.ignore(200,'\n');
 	datain >> dat.particleshapetype;datain.ignore(200,'\n');
@@ -191,9 +193,11 @@ int main(int argc, char**argv)try
 	gsdgenerate(dat);																																		// Generate gsd
 	// choose again volume
 	dat.choice = false;
+	cout << "Calculating intervals \n";
 	while (!dat.choice)
 		{
-			calculateintervals(dat);																														// generate list of intervals with number of particles
+			calculateintervals(dat);
+			// generate list of intervals with number of particles
 			//for (int i=0; i<dat.numberintervals; i++)
 			//	{
 			//		cout << i << " " << dat.intervals[i].begin<< " " << dat.intervals[i].numberparticles << " " << dat.intervals[i].diameter << "\n";
@@ -213,6 +217,7 @@ int main(int argc, char**argv)try
 			//	}
 			dat.choice =true; 																	// autocheck
 		}
+	cout << "Preparing list \n";
 	listprepare(dat);																			// generate list of particles with confirmed volume
 	//generate specimen;
 	if (dat.specimentype.compare("Cube")==0)
@@ -236,7 +241,9 @@ int main(int argc, char**argv)try
 					}
 		}
 	dat.numberunusedparticles = dat.numberparticles;
+	textout (dat);
 	// generate basic tetrahedron
+	cout << "Generating basic tetrahedron \n";
 	double r[3];
 	dat.usingparticle = dat.numberparticles -1;
 	dat.usinginterval = dat.numberintervals -1;
@@ -261,6 +268,7 @@ int main(int argc, char**argv)try
 		}
 	dat.usingparticle -=4;
 	// first loop for putting particles
+	cout << "Sequential packing \n";
 	int usinginterval = dat.usinginterval;
 	while ((dat.numberunusedparticles> 0)and(dat.numberopenfaces > 0))
 		{
@@ -336,6 +344,49 @@ int main(int argc, char**argv)try
 	// export results
 	savedomain(dat);
 	textout (dat);
+	// constriction calculation
+	dat.count=0;
+	cout << "Recalculating constriction \n";
+	int overlap;
+	for (int i=0; i <dat.faces.size(); i++)
+	{
+//		if (dat.faces[i].constrictionsize==0.)
+//		{
+//			continue;
+//		}
+		if (dat.faces[i].constrictionsize<=0.)
+		{
+			cout << "error \n";
+		}
+		overlap =checksphereoverlap(dat, dat.faces[i].constrictionsize, dat.faces[i].constrictioncentre);
+		if (overlap >-1)
+		{
+			bool check=false;
+			for (int j=0; j<3;j++)
+			{
+				if (overlap ==dat.faces[i].points[j])
+				{
+//					cout << "+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ \n";
+//					checkface(dat,i);
+//					checkparticle(dat,overlap);
+//					double distance = norm (dat.particles.Particles[overlap]->x-dat.faces[i].constrictioncentre)-dat.particles.Particles[overlap]->Props.R-dat.faces[i].constrictionsize;
+//					cout << distance << "\n";
+					check=true;
+				}
+			}
+			if (check)
+			{
+				continue;
+			}
+			dat.faces[i].reduce=true;
+			reduceconstriction(dat,i,overlap);
+		}
+		else
+		{
+			dat.faces[i].reduce=false;
+		}
+	}
+	textoutconstrictionsize(dat);
 }
 MECHSYS_CATCH
 // function
@@ -349,32 +400,73 @@ inline double interpolation (double x1,double x2, double y1,double y2,double x3)
 inline double constrictionsize (data&dat, int p0, int p1, int p2)																	// this constriction size is not real, because it may overlap with particles
 	{
 		Vec3_t x = dat.particles.Particles[p1]->x-dat.particles.Particles[p0]->x;
-		double x1 = norm(x);																										// get coordinates of particles in local coordinate system
-		x = x/x1;
-		double x2 = dot(dat.particles.Particles[p2]->x - dat.particles.Particles[p0]->x, x);
-		Vec3_t y = (dat.particles.Particles[p2]->x-dat.particles.Particles[p0]->x-x2*x);
-		double y2 = norm(y);
-		y=y/y2;
-		double a1 = (dat.particles.Particles[p0]->Props.R-dat.particles.Particles[p1]->Props.R)/x1;
-		double a2 = (dat.particles.Particles[p0]->Props.R -dat.particles.Particles[p2]->Props.R-a1*x2)/y2;
-		double b1 = (pow(x1,2.0)+pow(dat.particles.Particles[p0]->Props.R,2.0)-pow(dat.particles.Particles[p1]->Props.R,2.0))/2.0/x1;
-		double b2 = (pow(x2,2.0)+pow(y2,2.0)+pow(dat.particles.Particles[p0]->Props.R,2.0)-pow(dat.particles.Particles[p2]->Props.R,2.0)-2*b1*x2)/2/y2;
-		double a = pow(a1,2.0)+pow(b1,2.0)-1;
+		double x2 = norm(x);																										// get coordinates of particles in local coordinate system
+		x /=x2;
+		double x3 = dot(dat.particles.Particles[p2]->x - dat.particles.Particles[p0]->x, x);
+		Vec3_t y = (dat.particles.Particles[p2]->x-dat.particles.Particles[p0]->x-x3*x);
+		double y3 = norm(y);
+		y=y/y3;
+		double a1 = (dat.particles.Particles[p0]->Props.R-dat.particles.Particles[p1]->Props.R)/x2;
+		double a2 = (dat.particles.Particles[p0]->Props.R -dat.particles.Particles[p2]->Props.R-a1*x3)/y3;
+		double b1 = (x2*x2+pow(dat.particles.Particles[p0]->Props.R,2.0)-pow(dat.particles.Particles[p1]->Props.R,2.0))/2.0/x2;
+		double b2 = (pow(x3,2.0)+pow(y3,2.0)+pow(dat.particles.Particles[p0]->Props.R,2.0)-pow(dat.particles.Particles[p2]->Props.R,2.0)-2*b1*x3)/2.0/y3;
+		double a = pow(a1,2.0)+pow(a2,2.0)-1;
 		double b = a1*b1+a2*b2-dat.particles.Particles[p0]->Props.R;
 		double c = pow(b1, 2.0) +pow(b2, 2.0) - pow(dat.particles.Particles[p0]->Props.R, 2.0);
-		double constriction = (-b-pow(pow(b, 2.0)-a*c,0.5))/a;
-		if (constriction >0)
+		if (b*b-a*c>0.)
+		{
+			double constriction = (-b-pow(pow(b, 2.0)-a*c,0.5))/a;
+			if (constriction >dat.approximation)
 			{
 				dat.position = (a1*constriction+b1)*x+(a2*constriction+b2)*y+dat.particles.Particles[p0]->x;
 				return (constriction);
 			}
-		else
+			else
 			{
 				cout << "constriction problems \n";
 				return (0.0);
 			}
+		}
+		else
+		{
+			cout << "no constriction \n";
+			cout << x<< " "<< y<< " \n";
+			cout << x2 << " " << x3<< " "<<y3 <<"\n";
+			cout << a1 << " " << a2 <<" "<< b1<< " "<< b2<<" \n";
+			cout << a << " " << b << " " << c<< "\n";
+			checkparticle(dat,p0);
+			checkparticle(dat,p1);
+			checkparticle(dat,p2);
+			return(0.0);
+		}
 	}
-
+inline int checksphereoverlap(data & dat, double radius, Vec3_t constrictioncentre)
+	{
+		bool overlapcheck = true;
+		int overlap;
+		double overlapdistance = -dat.approximation;
+		double distance;
+		for (int i =0; i < dat.particles.Particles.Size();i++)
+		{
+			distance = norm(dat.particles.Particles[i]->x-constrictioncentre) -(dat.particles.Particles[i]->Props.R+radius);
+			if (distance < overlapdistance)
+			{
+				overlapcheck =false;
+				overlapdistance = distance;
+				overlap =i;
+				dat.count +=1;
+			}
+//		if (abs(dot(dat.faces[m0].constrictioncentre-dat.particles.Particles[dat.faces[m0].points[0]]->x,dat.faces[m0].normal))>0.0001)
+//		{
+//			cout << "constriction out of plane \n";
+//		}
+		}
+		if (overlapcheck)
+		{
+			overlap =-1;
+		}
+		return(overlap);
+	}
 inline void calculateintervals(data & dat)																							//prepare a list of intervals
 	{
 		// generate intervals
@@ -456,29 +548,38 @@ inline void checkdistance(data&dat, int p0)
 					}
 			}
 	}
+
+inline void checkface(data&dat,int m0)
+	{
+		for (int i=0; i<3;i++)
+		{
+			cout << dat.faces[m0].points[i]<< " "<< dat.particles.Particles[dat.faces[m0].points[i]]->x <<" " <<dat.particles.Particles[dat.faces[m0].points[i]]->Props.R << "\n";
+		}
+		cout << dat.faces[m0].constrictioncentre<< " "<<dat.faces[m0].constrictionsize << "\n";
+	}
 inline void checkoverlap(data&dat, int p0)
 	{
 		dat.checkoverlap =true;
 		dat.overlappingpoint =-1;
-		double overlapdistance = -0.00001;																												// default overlappint distance, to avoid calculation error
+		double overlapdistance = -dat.approximation;																												// default overlappint distance, to avoid calculation error
 		for ( int i = 0;  i < dat.numberparticles; i++)
 			{
 				if ((dat.particlesuse[i])and(!(i==p0)))
 					{
 						double distance = norm(dat.particles.Particles[p0]->x-dat.particles.Particles[i]->x) -dat.particles.Particles[p0]->Props.R -dat.particles.Particles[i]->Props.R;
-						if (distance < - dat.approximation)
+						if (distance < overlapdistance)
 							{
-								if (overlapdistance > distance)
-									{
-										dat.overlappingpoint = i;
-										overlapdistance = distance;
-									}
+								dat.overlappingpoint = i;
+								overlapdistance = distance;
 								dat.checkoverlap =false;
 							}
 					}
 			}
 	}
-
+inline void checkparticle(data&dat, int p0)
+{
+	cout << p0<< " "<< dat.particles.Particles[p0]->x<< " "<< dat.particles.Particles[p0]->Props.R <<" \n";
+}
 inline void closeface(data & dat, int m0)
 	{
 		dat.faces[m0].faceuse =0;
@@ -643,6 +744,163 @@ inline void moveon(data & dat, int p0, int m0)
 		dat.finalposition = dat.particles.Particles[p0]->x - dat.faces[m0].faceuse*move*dat.faces[m0].normal;
 		dat.particles.Particles[p0]->Position(dat.finalposition);
 	}
+inline void reduceconstriction(data&dat, int m0, int overlap)
+	{
+		establishlocalsystem(dat,m0);
+		int checkID=overlap;
+		int points[10];
+		for (int i=0; i<3; i++)
+		{
+			int count =0;
+			while (checkID>-1)
+			{
+				points[count]=checkID;
+				//cout << checkID << "\n";
+				planeconstriction(dat, m0, dat.faces[m0].points[i], dat.faces[m0].points[(i+1)%3], checkID, i);
+				checkID=checksphereoverlap(dat,dat.faces[m0].smallsizes[i],dat.faces[m0].smallcentres[i]);
+				if ((checkID==dat.faces[m0].points[i])or(checkID==dat.faces[m0].points[(i+1)%3]))
+				{
+					cout << "overlap with particle on face \n";
+					checkface(dat,m0);
+					checkparticle(dat,checkID);
+					cout << dat.faces[m0].smallcentres[i]<< " "<<dat.faces[m0].smallsizes[i]<<" \n";
+				}
+				if (checkID==dat.faces[m0].points[(i+2)%3])
+				{
+					double distance = norm (dat.particles.Particles[checkID]->x-dat.faces[m0].smallcentres[i])-dat.particles.Particles[checkID]->Props.R-dat.faces[m0].smallsizes[i];
+					if (distance <dat.particles.Particles[checkID]->Props.R/20.)
+					{
+						checkID=-1;
+					}
+				}
+				count +=1;
+				if (count >9)
+				{
+//					cout <<" long circles \n";
+//					for (int j=0; j <10; j++)
+//					{
+//						cout << points[j]<< " ";
+//					}
+//					cout <<"\n";
+					checkID=-1;
+					dat.faces[m0].smallsizes[i]=0.;
+					break;
+				}
+			}
+		}
+	}
+inline void planeconstriction(data&dat, int m0, int p0, int p1, int overlap, int smallconstriction)
+{
+	Vec3_t system[3];
+	int p[3];
+	p[0]=p0;
+	p[1]=p1;
+	p[2]=overlap;
+	int swap;
+	if (dat.particles.Particles[p[0]]->Props.R < dat.particles.Particles[p[1]]->Props.R)
+	{
+		swap = p[0];
+		p[0]=p[1];
+		p[1]=swap;
+	}
+	system[2]=dat.localsystem[2];
+	system[0]= (dat.particles.Particles[p[1]]->x-dat.particles.Particles[p[0]]->x);
+	double x2 = norm(system[0]);
+	system[0]/=x2;
+	system[1]=-cross(system[0],system[2]);
+	system[1]/=norm(system[1]);
+	double x3[3];
+	double r[3];
+	for (int i=0;i<3;i++)
+	{
+		x3[i]=dot(dat.particles.Particles[p[2]]->x-dat.particles.Particles[p[0]]->x,system[i]);
+		r[i]=dat.particles.Particles[p[i]]->Props.R;
+	}
+	double a1 = (r[0]-r[1])/x2;
+	double a2 = (r[0]*r[0]+x2*x2-r[1]*r[1])/2.0/x2;
+	if (x2==0)
+	{
+		cout << "fault \n";
+	}
+	double b1 = (r[0]-r[2]-a1*x3[0])/x3[1];
+	double b2 = (r[0]*r[0]-r[2]*r[2]+x3[0]*x3[0]+x3[1]*x3[1]+x3[2]*x3[2]-2*a2*x3[0])/2.0/x3[1];
+	if (x3[1]==0)
+	{
+		cout << "fault2 \n";
+		cout << p[0]<<" "<<p[2];
+	}
+	double a = a1*a1+b1*b1-1.0;
+	double b = a1*a2+b1*b2-r[0];
+	double c = a2*a2+b2*b2-r[0]*r[0];
+//	double x[3];
+//	double y[3];
+//	double z[3];
+//	double r[3];
+//	for (int i=0; i<3; i++)
+//	{
+//		x[i]=dot(dat.particles.Particles[p[i]]->x-dat.particles.Particles[dat.faces[m0].points[0]]->x,dat.localsystem[0]);
+//		y[i]=dot(dat.particles.Particles[p[i]]->x-dat.particles.Particles[dat.faces[m0].points[0]]->x,dat.localsystem[1]);
+//		z[i]=dot(dat.particles.Particles[p[i]]->x-dat.particles.Particles[dat.faces[m0].points[0]]->x,dat.localsystem[2]);
+//		r[i]=dat.particles.Particles[p[i]]->Props.R;
+//	}
+//	double num;
+//	num = pow(x[0],2.)+pow(y[0],2.)+pow(z[0],2.);
+//	double a1 = (pow(r[1],2.)-pow(r[0],2.)+num-(pow(x[1],2.)+pow(y[1],2.)+pow(z[1],2.)))/2;
+//	double a2 = (pow(r[2],2.)-pow(r[0],2.)+num-(pow(x[2],2.)+pow(y[2],2.)+pow(z[2],2.)))/2;
+//	num = (y[0]-y[2])*(x[0]-x[1])-(y[0]-y[1])*(x[0]-x[2]);
+//	if (num==0)
+//	{
+//		cout << x[0]<< " "<< x[1]<< " "<< x[2]<< " " <<y[0]<< " " << y[1] << " " <<y[2]<<" fault \n";
+//	}
+//	double b1 = ((r[2]-r[0])*(x[0]-x[1])-(r[1]-r[0])*(x[0]-x[2]))/num;
+//	double b2 = (a2*(x[0]-x[1])-a1*(x[0]-x[2]))/num;
+//	double c1 = (r[1]-r[0]-(y[0]-y[1])*b1)/(x[0]-x[1]);
+//	double c2 = (a1-(y[0]-y[1])*b2)/(x[0]-x[1]);
+//	if (x[0]==x[1])
+//	{
+//		cout << x[0]<< " "<< x[1]<< " "<< x[2]<< " " <<y[0]<< " " << y[1] << " " <<y[2]<<" fault2 \n";
+//	}
+//	double a = pow(c1,2.)+pow(b1,2.)-1;
+//	double b = c1*(c2-x[0])+b1*(b2-y[0])-r[0];
+//	double c = pow(c2-x[0],2.)+pow(b2-y[0],2.)-r[0]*r[0]+z[0]*z[0];
+	if (b*b>a*c)
+	{
+		double constriction = (-b-pow(b*b-a*c,0.5))/a;
+		if ((constriction >dat.approximation)and(x3[1]*(b1*constriction+b2)>0))
+		{
+			dat.faces[m0].smallsizes[smallconstriction]=constriction;
+			dat.faces[m0].smallcentres[smallconstriction]=(a1*constriction+a2)*system[0]+(b1*constriction+b2)*system[1]+dat.particles.Particles[p[0]]->x;
+			//dat.faces[m0].smallcentres[smallconstriction]=dat.particles.Particles[dat.faces[m0].points[0]]->x+(c1*constriction+c2)*dat.localsystem[0]+(b1*constriction+b2)*dat.localsystem[1];
+//			for (int i=0;i<3;i++)
+//			{
+//				cout << p[i]<< " "<< dat.particles.Particles[p[i]]->x<< " "<<dat.particles.Particles[p[i]]->Props.R<< "\n";
+//			}
+//			cout << dat.faces[m0].smallcentres[smallconstriction]<< " "<<dat.faces[m0].smallsizes[smallconstriction]<<"\n";
+		}
+		else
+		{
+			constriction = (-b+pow(b*b-a*c,0.5))/a;
+			if (constriction >dat.approximation)
+			{
+				dat.faces[m0].smallsizes[smallconstriction]=constriction;
+				dat.faces[m0].smallcentres[smallconstriction]=(a1*constriction+a2)*system[0]+(b1*constriction+b2)*system[1]+dat.particles.Particles[p[0]]->x;
+				//dat.faces[m0].smallcentres[smallconstriction]=dat.particles.Particles[dat.faces[m0].points[0]]->x+(c1*constriction+c2)*dat.localsystem[0]+(b1*constriction+b2)*dat.localsystem[1];
+				//cout << " swap sign constriction \n";
+			}
+			else
+			{
+//				cout << p[0] <<" "<< p[1] <<" "<<p[2]<<" small constriction problem \n";
+//				checkface(dat,m0);
+//				checkparticle(dat,overlap);
+				dat.faces[m0].smallsizes[smallconstriction]=0.;
+			}
+		}
+	}
+	else
+	{
+		cout << "no small constriction \n";
+	}
+}
 inline void putparticle(data & dat, int p0, int m0)
 	{
 		establishlocalsystem(dat,m0);															// calculate local coordinates system
@@ -706,6 +964,107 @@ inline void textout (data & dat)
 						dataout << i << " : " << dat.intervals[i].usingparticle << " " <<dat.intervals[i].firstparticle << "\n";
 					}
 			}
+		dataout.close();
+	}
+inline void textoutconstrictionsize(data&dat)
+	{
+		vector <double> constrictionsize;							// get all constrictions
+		for (size_t i=0; i <dat.faces.size();i++)
+		{
+			if (!dat.faces[i].reduce)
+			{
+				if (dat.faces[i].constrictionsize>dat.approximation)
+				{
+					constrictionsize.push_back(dat.faces[i].constrictionsize);
+				}
+			}
+			else
+			{
+				for (int j=0; j<3;j++)
+				{
+					if (dat.faces[i].smallsizes[j]>dat.approximation)
+					{
+						constrictionsize.push_back(dat.faces[i].smallsizes[j]);
+					}
+				}
+			}
+		}
+		double max = constrictionsize[0];							// define log base
+		double min = constrictionsize[0];
+		for (size_t i=0;i<constrictionsize.size();i++)
+		{
+			if (max<constrictionsize[i])
+			{
+				max=constrictionsize[i];
+			}
+			if (min>constrictionsize[i])
+			{
+				min = constrictionsize[i];
+			}
+		}
+		cout << min << " " << max<<"\n";
+		int powermin = floor(log10(min));
+		int powermax = floor (log10(max));
+		int count = floor(min/pow(10.,powermin));
+		double power=powermin;
+		vector <double> constriction;
+		vector <double> number;
+		vector <double> area;
+		vector <double> mass;
+		double siz=count*pow(10,power);
+		double zer =0.;
+		cout <<zer <<"\n";
+		while (siz<max)
+		{
+			siz=count*pow(10.,power);
+			constriction.push_back(siz);
+			cout <<zer <<"\n";
+			number.push_back(zer);
+			area.push_back(zer);
+			mass.push_back(zer);
+			count =(count+1)%10;
+			if (count==0)
+			{
+				power+=1;
+				count=1;
+			}
+		}
+		constriction.push_back(count*pow(10.,power));
+		number.push_back(zer);
+		area.push_back(zer);
+		mass.push_back(zer);
+		cout << "accumulation \n";
+		for (int i=1;i<constriction.size();i++)									// accumulate fraction
+		{
+			for (size_t j=0; j<constrictionsize.size();j++)
+			{
+				if (constrictionsize[j]<constriction[i])
+				{
+					number[i]+=1;
+					area[i]+=acos(-1.)*pow(constrictionsize[j],2.);
+					mass[i]+=4/3*acos(-1.)*pow(constrictionsize[j],3.);
+				}
+			}
+			if (i<constriction.size()-1)
+			{
+				number[i+1]=number[i];
+				area[i+1]=area[i];
+				mass[i+1]=mass[i];
+			}
+		}
+		for (int i=0;i<constriction.size();i++)									// normalise
+		{
+			number[i]=number[i]*100/number[constriction.size()-1];
+			area[i]=area[i]*100/area[constriction.size()-1];
+			mass[i]=mass[i]*100/mass[constriction.size()-1];
+		}
+		ofstream dataout;																							// export to text file
+		dataout.open("csd.out");
+		dataout << "size number area mass \n";
+		for (int i=0; i<constriction.size();i++)
+		{
+			dataout<< constriction[i]<< " "<<number[i]<<" "<< area[i]<< " "<< mass[i]<<"\n";
+		}
 		dataout.close();
 	}
 inline void tryputparticle(data&dat,int p0, int m0)

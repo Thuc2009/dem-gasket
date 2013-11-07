@@ -52,7 +52,7 @@ int main(int argc, char **argv) try
 					center = particles.Particles[i]->x -distance*normvec;
 //					center.push_back(center);
 //					radii.push_back(pow(pow(particles.Particles[i]->Props.R,2.)+distance*distance,0.5));
-					radius =pow(pow(particles.Particles[i]->Props.R,2.)+distance*distance,0.5);
+					radius =pow(pow(particles.Particles[i]->Props.R,2.)-pow(distance,2.),0.5);
 					for (int j=0;j<3;j++)
 						{
 							dataout << center(j)<< " ";
