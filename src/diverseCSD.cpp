@@ -97,6 +97,7 @@ struct data
 };
 // function and procedure declaration
 void calculateintervals(data & dat);
+void calculatecsd(data&dat);
 void checkoverlap(data&dat, int p0);
 void checkdistance(data&dat, int p0);
 void checkface(data&dat,int m0=1001);
@@ -114,7 +115,7 @@ void planeconstriction(data&dat, int m0, int p0, int p1, int overlap, int smallc
 void putparticle(data & dat, int p0, int m0);
 void savedomain(data&dat);
 void textout (data& dat);
-void textoutconstrictionsize(data&dat);
+void textoutconstrictionsize(data&dat,string filename);
 void tryputparticle(data&dat, int p0,int m0);
 void useparticle(data & dat, int p0);
 double interpolation (double x1,double x2, double y1,double y2,double x3);
@@ -386,7 +387,7 @@ int main(int argc, char**argv)try
 			dat.faces[i].reduce=false;
 		}
 	}
-	textoutconstrictionsize(dat);
+	textoutconstrictionsize(dat,dat.outputdomain);
 }
 MECHSYS_CATCH
 // function
@@ -644,6 +645,7 @@ inline void createface(data & dat, int p0, int p1, int p2,int p3)
 			{
 				facetemprorary.constrictionsize = constrictionsize(dat, facetemprorary.points[0],facetemprorary.points[1],facetemprorary.points[2]);		// calculate constriction size
 				facetemprorary.constrictioncentre = dat.position;
+				facetemprorary.reduce = false;
 				DEM::Face facedemtemprorary(V);															// add face in library
 				facedemtemprorary.Normal(facetemprorary.normal);
 				facetemprorary.normal /= norm(facetemprorary.normal);
@@ -803,6 +805,7 @@ inline void planeconstriction(data&dat, int m0, int p0, int p1, int overlap, int
 		p[0]=p[1];
 		p[1]=swap;
 	}
+	// build new system
 	system[2]=dat.localsystem[2];
 	system[0]= (dat.particles.Particles[p[1]]->x-dat.particles.Particles[p[0]]->x);
 	double x2 = norm(system[0]);
@@ -818,51 +821,11 @@ inline void planeconstriction(data&dat, int m0, int p0, int p1, int overlap, int
 	}
 	double a1 = (r[0]-r[1])/x2;
 	double a2 = (r[0]*r[0]+x2*x2-r[1]*r[1])/2.0/x2;
-	if (x2==0)
-	{
-		cout << "fault \n";
-	}
 	double b1 = (r[0]-r[2]-a1*x3[0])/x3[1];
 	double b2 = (r[0]*r[0]-r[2]*r[2]+x3[0]*x3[0]+x3[1]*x3[1]+x3[2]*x3[2]-2*a2*x3[0])/2.0/x3[1];
-	if (x3[1]==0)
-	{
-		cout << "fault2 \n";
-		cout << p[0]<<" "<<p[2];
-	}
 	double a = a1*a1+b1*b1-1.0;
 	double b = a1*a2+b1*b2-r[0];
 	double c = a2*a2+b2*b2-r[0]*r[0];
-//	double x[3];
-//	double y[3];
-//	double z[3];
-//	double r[3];
-//	for (int i=0; i<3; i++)
-//	{
-//		x[i]=dot(dat.particles.Particles[p[i]]->x-dat.particles.Particles[dat.faces[m0].points[0]]->x,dat.localsystem[0]);
-//		y[i]=dot(dat.particles.Particles[p[i]]->x-dat.particles.Particles[dat.faces[m0].points[0]]->x,dat.localsystem[1]);
-//		z[i]=dot(dat.particles.Particles[p[i]]->x-dat.particles.Particles[dat.faces[m0].points[0]]->x,dat.localsystem[2]);
-//		r[i]=dat.particles.Particles[p[i]]->Props.R;
-//	}
-//	double num;
-//	num = pow(x[0],2.)+pow(y[0],2.)+pow(z[0],2.);
-//	double a1 = (pow(r[1],2.)-pow(r[0],2.)+num-(pow(x[1],2.)+pow(y[1],2.)+pow(z[1],2.)))/2;
-//	double a2 = (pow(r[2],2.)-pow(r[0],2.)+num-(pow(x[2],2.)+pow(y[2],2.)+pow(z[2],2.)))/2;
-//	num = (y[0]-y[2])*(x[0]-x[1])-(y[0]-y[1])*(x[0]-x[2]);
-//	if (num==0)
-//	{
-//		cout << x[0]<< " "<< x[1]<< " "<< x[2]<< " " <<y[0]<< " " << y[1] << " " <<y[2]<<" fault \n";
-//	}
-//	double b1 = ((r[2]-r[0])*(x[0]-x[1])-(r[1]-r[0])*(x[0]-x[2]))/num;
-//	double b2 = (a2*(x[0]-x[1])-a1*(x[0]-x[2]))/num;
-//	double c1 = (r[1]-r[0]-(y[0]-y[1])*b1)/(x[0]-x[1]);
-//	double c2 = (a1-(y[0]-y[1])*b2)/(x[0]-x[1]);
-//	if (x[0]==x[1])
-//	{
-//		cout << x[0]<< " "<< x[1]<< " "<< x[2]<< " " <<y[0]<< " " << y[1] << " " <<y[2]<<" fault2 \n";
-//	}
-//	double a = pow(c1,2.)+pow(b1,2.)-1;
-//	double b = c1*(c2-x[0])+b1*(b2-y[0])-r[0];
-//	double c = pow(c2-x[0],2.)+pow(b2-y[0],2.)-r[0]*r[0]+z[0]*z[0];
 	if (b*b>a*c)
 	{
 		double constriction = (-b-pow(b*b-a*c,0.5))/a;
@@ -870,12 +833,6 @@ inline void planeconstriction(data&dat, int m0, int p0, int p1, int overlap, int
 		{
 			dat.faces[m0].smallsizes[smallconstriction]=constriction;
 			dat.faces[m0].smallcentres[smallconstriction]=(a1*constriction+a2)*system[0]+(b1*constriction+b2)*system[1]+dat.particles.Particles[p[0]]->x;
-			//dat.faces[m0].smallcentres[smallconstriction]=dat.particles.Particles[dat.faces[m0].points[0]]->x+(c1*constriction+c2)*dat.localsystem[0]+(b1*constriction+b2)*dat.localsystem[1];
-//			for (int i=0;i<3;i++)
-//			{
-//				cout << p[i]<< " "<< dat.particles.Particles[p[i]]->x<< " "<<dat.particles.Particles[p[i]]->Props.R<< "\n";
-//			}
-//			cout << dat.faces[m0].smallcentres[smallconstriction]<< " "<<dat.faces[m0].smallsizes[smallconstriction]<<"\n";
 		}
 		else
 		{
@@ -884,15 +841,15 @@ inline void planeconstriction(data&dat, int m0, int p0, int p1, int overlap, int
 			{
 				dat.faces[m0].smallsizes[smallconstriction]=constriction;
 				dat.faces[m0].smallcentres[smallconstriction]=(a1*constriction+a2)*system[0]+(b1*constriction+b2)*system[1]+dat.particles.Particles[p[0]]->x;
-				//dat.faces[m0].smallcentres[smallconstriction]=dat.particles.Particles[dat.faces[m0].points[0]]->x+(c1*constriction+c2)*dat.localsystem[0]+(b1*constriction+b2)*dat.localsystem[1];
-				//cout << " swap sign constriction \n";
+				cout << " swap sign constriction \n";
 			}
 			else
 			{
-//				cout << p[0] <<" "<< p[1] <<" "<<p[2]<<" small constriction problem \n";
-//				checkface(dat,m0);
-//				checkparticle(dat,overlap);
+				cout << p[0] <<" "<< p[1] <<" "<<p[2]<<" small constriction problem \n";
+				checkface(dat,m0);
+				checkparticle(dat,overlap);
 				dat.faces[m0].smallsizes[smallconstriction]=0.;
+				return;
 			}
 		}
 	}
@@ -966,7 +923,7 @@ inline void textout (data & dat)
 			}
 		dataout.close();
 	}
-inline void textoutconstrictionsize(data&dat)
+inline void textoutconstrictionsize(data&dat, string filename)
 	{
 		vector <double> constrictionsize;							// get all constrictions
 		for (size_t i=0; i <dat.faces.size();i++)
@@ -1011,6 +968,9 @@ inline void textoutconstrictionsize(data&dat)
 		vector <double> number;
 		vector <double> area;
 		vector <double> mass;
+//		double csdnumber[21];
+//		double csdarea[21];
+//		double csdmass[21];
 		double siz=count*pow(10,power);
 		double zer =0.;
 		cout <<zer <<"\n";
@@ -1018,7 +978,6 @@ inline void textoutconstrictionsize(data&dat)
 		{
 			siz=count*pow(10.,power);
 			constriction.push_back(siz);
-			cout <<zer <<"\n";
 			number.push_back(zer);
 			area.push_back(zer);
 			mass.push_back(zer);
@@ -1052,14 +1011,15 @@ inline void textoutconstrictionsize(data&dat)
 				mass[i+1]=mass[i];
 			}
 		}
-		for (int i=0;i<constriction.size();i++)									// normalise
+		for (int i=0;i<constriction.size();i++)									// normalization
 		{
 			number[i]=number[i]*100/number[constriction.size()-1];
 			area[i]=area[i]*100/area[constriction.size()-1];
 			mass[i]=mass[i]*100/mass[constriction.size()-1];
 		}
 		ofstream dataout;																							// export to text file
-		dataout.open("csd.out");
+		filename.append(".out");
+		dataout.open(filename.c_str());
 		dataout << "size number area mass \n";
 		for (int i=0; i<constriction.size();i++)
 		{

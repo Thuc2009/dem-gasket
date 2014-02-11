@@ -140,6 +140,7 @@ int main(int argc, char** argv) try
 	//		datain.open(dat.datafile.c_str());
 	//	}
 	datain >> dat.soilname; 		datain.ignore(200,'\n');
+	cout << dat.soilname <<"\n";
 	datain >> dat.specimentype;		datain.ignore(200,'\n');
 	datain >> dat.particleshapetype;datain.ignore(200,'\n');
 	datain >> dat.fillingtype;		datain.ignore(200,'\n');
@@ -287,6 +288,10 @@ int main(int argc, char** argv) try
 								break;
 							}
 					}
+				if (dat.numberunusedparticles%4==0)
+				{
+					cout << dat.numberunusedparticles <<"\n";
+				}
 				usingparticle = dat.usingparticle;
 				usingface = dat.usingface;
 				putparticle(dat,usingparticle,dat.usingface);
@@ -428,6 +433,8 @@ inline void calculateintervals(data & dat)																							//prepare a lis
 					}
 				else
 					{
+						cout << dat.gsd1[i]<< " "<< dat.gsd1[i+1]<<"\n";
+						cout << count << " "<< dat.maxfraction<< "\n";
 						count = dat.gsd1[i];
 						while (count < dat.gsd1[i+1])
 							{
@@ -438,6 +445,7 @@ inline void calculateintervals(data & dat)																							//prepare a lis
 							}
 					}
 			}
+		cout << dat.numberintervals<<"\n";
 		if (dat.intervals[dat.numberintervals-1].begin =100)
 			{
 				dat.intervals.pop_back();																												// not completely delete, therefore, still active below

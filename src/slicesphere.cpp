@@ -43,23 +43,33 @@ int main(int argc, char **argv) try
 		}
 	Vec3_t normvec (a[0],a[1],a[2]);
 	particles.Load(domainin.c_str());
-	dataout.open(domainout.c_str());
-	for (size_t i=0; i<particles.Particles.Size();i++)
-		{
-			distance=a[3]+dot(normvec,particles.Particles[i]->x);
-			if (abs(distance) <particles.Particles[i]->Props.R)
-				{
-					center = particles.Particles[i]->x -distance*normvec;
-//					center.push_back(center);
-//					radii.push_back(pow(pow(particles.Particles[i]->Props.R,2.)+distance*distance,0.5));
-					radius =pow(pow(particles.Particles[i]->Props.R,2.)-pow(distance,2.),0.5);
-					for (int j=0;j<3;j++)
-						{
-							dataout << center(j)<< " ";
-						}
-					dataout << radius << "\n";
-				}
-		}
-	dataout.close();
+	for(int j=-10; j <11;j++)
+	{
+		stringstream count;
+		count << j;
+		a[3]=j;
+		filename =domainout;
+		filename.append(count.str());
+		filename.append(".out");
+		dataout.open(filename.c_str());
+		for (size_t i=0; i<particles.Particles.Size();i++)
+			{
+				distance=a[3]+dot(normvec,particles.Particles[i]->x);
+				if (abs(distance) <particles.Particles[i]->Props.R)
+					{
+						center = particles.Particles[i]->x -distance*normvec;
+	//					center.push_back(center);
+	//					radii.push_back(pow(pow(particles.Particles[i]->Props.R,2.)+distance*distance,0.5));
+						radius =pow(pow(particles.Particles[i]->Props.R,2.)-pow(distance,2.),0.5);
+						for (int j=0;j<3;j++)
+							{
+								dataout << center(j)<< " ";
+							}
+						dataout << radius << "\n";
+					}
+			}
+		dataout.close();
+	}
+
 }
 MECHSYS_CATCH

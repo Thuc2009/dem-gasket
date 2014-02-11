@@ -18,6 +18,27 @@ using namespace std;
 // this namespace
 namespace DEM
 {
+struct DemParameters
+{
+	double Kn;
+	double Kt;
+	double Gn;
+	double Gt;
+	double Gv;
+	double Mu;
+	double dt;
+	double tf;
+	double dtout;
+	double roundratio;
+	double Alpha;
+	double Kinematicenergy;
+	int numberprocessors;
+	int numbershapes;
+	int numberintervals;
+	int visualization;
+	int starttag;
+	string FileKey;
+};
 struct SequentialFace
 {
 	int points[3];
@@ -66,18 +87,18 @@ struct Gsd
 	string boundaryfile;
 	double density;
 	double mass;
-	double numberparticles;
 	double porosity;
 	double specialgravity;	// special gravity 0 - provided by intervals
 	double volume;
 	int maxfraction; 		// max percentage per intervals
 	int numberintervals;
 	int numberinters;
+	int numberparticles;
 	int numbershapes;
-	double shapemass[10];	//ratio between mass of shape and basic size
+	double shapem[10];	//ratio between mass of shape and basic size
 	double rectangularboxratios[3];
-	vector <Interval> intervals;
-	vector <Interval> inters;
+	vector <Interval> intervals;		// readin intervals
+	vector <Interval> inters;			// calculating intervals
 };
 struct SequentialPackingData
 {
@@ -110,6 +131,7 @@ struct SequentialPackingData
 	string boundarytype;
 	DEM::Gsd gsd;
 	DEM::Domain specimen;
+	DemParameters para;
 };
 
 // main classes
@@ -127,6 +149,7 @@ public:
     // List of functions
 
     double ShapeMass(DEM::SequentialPackingData&packinfo, int shape, double size, double density);
+    int GetInterval(DEM::SequentialPackingData&packinfo, int p0);
     void AddParticle( DEM::SequentialPackingData&packinfo, int inter, int shape, double size, double density, Vec3_t position, double roundness=0.005);
     void BasicTetrahedron (DEM::SequentialPackingData&packinfo, int p[4]);
     void CheckBoundary(DEM::SequentialPackingData&packinfo, int p3);
@@ -135,13 +158,20 @@ public:
     void CompleteGsdData(DEM::SequentialPackingData&packinfo);
     void CreateSequentialFace(DEM::SequentialPackingData&packinfo, int p[3],int p3, bool sort=true);
     void CreateSequentialTetrahedron(DEM::SequentialPackingData&packinfo, int face, int p3);
+    void DeleteUnusedParticles(DEM::SequentialPackingData&packinfo);
     void DrawBoundary(DEM::SequentialPackingData&packinfo);
+    void DropDown(DEM::SequentialPackingData&packinfo);
     void EstablishLocalSystem(DEM::SequentialPackingData&packinfo, int face);
     void FrozenTag(DEM::SequentialPackingData&packinfo, int tag);
+    void MoveOn(DEM::SequentialPackingData&packinfo, int p3,int face);
     void PrepareList(DEM::SequentialPackingData&packinfo, bool randomness=false);
+    void PrintOut(DEM::SequentialPackingData&packinfo);
 	void PutSequentialParticle(DEM::SequentialPackingData&packinfo, int face, int p3);
+	void ReadDemParameters(DEM::SequentialPackingData&packinfo, string FileKey="sand");
     void ReadGsd(DEM::SequentialPackingData&packinfo,string FileKey="sand");
+    void SaveDomain(DEM::Domain&specimen,string filename, int outputtype);
     void SequentialPacking(DEM::SequentialPackingData&packinfo);
+    void TextOut(DEM::SequentialPackingData&packinfo);
     void TrySequentialParticle(DEM::SequentialPackingData&packinfo, int face, int p3);
     void UseParticle(DEM::SequentialPackingData&packinfo, int p3);
 };
@@ -152,8 +182,6 @@ inline Soil::Soil(void * UD)
 
 inline Soil::~Soil()
 {}
-
-
 
 inline double Soil::ShapeMass(DEM::SequentialPackingData&packinfo, int shape, double size, double density)
 {
@@ -177,6 +205,11 @@ inline double Soil::ShapeMass(DEM::SequentialPackingData&packinfo, int shape, do
 	}
 	return (mass);
 }
+inline int Soil::GetInterval(DEM::SequentialPackingData&packinfo, int p0)
+{
+	int inter = floor(abs(packinfo.specimen.Particles[p0]->Tag)/packinfo.gsd.numbershapes);
+	return (inter);
+}
 // Functions
 inline void Soil::AddParticle( DEM::SequentialPackingData&packinfo, int inter, int shape, double size, double density, Vec3_t position, double roundness)
 {
@@ -196,7 +229,7 @@ inline void Soil::AddParticle( DEM::SequentialPackingData&packinfo, int inter, i
 	case 3:
 		double smallsize;
 		smallsize= size/(1+packinfo.gsd.rectangularboxratios[1]);
-		packinfo.specimen.AddRecBox(-packinfo.gsd.numbershapes*inter-shape,position,Vec3_t (smallsize,smallsize*packinfo.gsd.rectangularboxratios[1],smallsize*gsd.rectangularboxratios[2]),roundness,density);
+		packinfo.specimen.AddRecBox(-packinfo.gsd.numbershapes*inter-shape,position,Vec3_t (smallsize,smallsize*packinfo.gsd.rectangularboxratios[1],smallsize*packinfo.gsd.rectangularboxratios[2]),roundness,density);
 		packinfo.specimen.Particles[packinfo.specimen.Particles.Size()-1]->Erode(roundness);
 		break;
 	default:
@@ -244,7 +277,7 @@ inline void Soil::CheckBoundary( DEM::SequentialPackingData&packinfo, int p3)
 	}
 	else if (packinfo.boundarytype=="Sphere")
 	{
-		if (norm(packinfo.specimen.Particles[p3]->x)+ packinfo.specimen.Particles[p3]->Dmax >packinfo.boundaryfactors[0])
+		if (norm(packinfo.specimen.Particles[p3]->x)+ packinfo.specimen.Particles[p3]->Dmax >packinfo.boundaryfactors[0]/2)
 			{
 				packinfo.checkboundary=false;
 			}
@@ -253,7 +286,7 @@ inline void Soil::CheckBoundary( DEM::SequentialPackingData&packinfo, int p3)
 	{
 		for (int i = 0; i < 3; i++)
 			{
-				if (abs(packinfo.specimen.Particles[p3]->x(i))+packinfo.specimen.Particles[p3]->Dmax > packinfo.boundaryfactors[i])
+				if (abs(packinfo.specimen.Particles[p3]->x(i))+packinfo.specimen.Particles[p3]->Dmax > packinfo.boundaryfactors[i]/2)
 					{
 						packinfo.checkboundary= false;
 					}
@@ -261,11 +294,11 @@ inline void Soil::CheckBoundary( DEM::SequentialPackingData&packinfo, int p3)
 	}
 	else if (packinfo.boundarytype== "Cylinder")
 	{
-		if (abs(packinfo.specimen.Particles[p3]->x(2))+packinfo.specimen.Particles[p3]->Dmax > packinfo.boundaryfactors[1])
+		if (abs(packinfo.specimen.Particles[p3]->x(2))+packinfo.specimen.Particles[p3]->Dmax > packinfo.boundaryfactors[1]/2)
 			{
 				packinfo.checkboundary=false;
 			}
-		else if (abs(pow(pow(packinfo.specimen.Particles[p3]->x(0),2.)+pow(packinfo.specimen.Particles[p3]->x(1),2.),0.5))+packinfo.specimen.Particles[p3]->Dmax > packinfo.boundaryfactors[0])
+		else if (abs(pow(pow(packinfo.specimen.Particles[p3]->x(0),2.)+pow(packinfo.specimen.Particles[p3]->x(1),2.),0.5))+packinfo.specimen.Particles[p3]->Dmax > packinfo.boundaryfactors[0]/2)
 			{
 				packinfo.checkboundary=false;
 			}
@@ -361,6 +394,10 @@ inline void Soil::CompleteGsdData(DEM::SequentialPackingData&packinfo)
 				count1 +=packinfo.gsd.maxfraction;
 				in.end=count1;
 				in.enddiameter= pow(10,log10(packinfo.gsd.intervals[i].begindiameter)+(in.end-packinfo.gsd.intervals[i].begin)/(packinfo.gsd.intervals[i].end-packinfo.gsd.intervals[i].begin)*(log10(packinfo.gsd.intervals[i].enddiameter)-log10(packinfo.gsd.intervals[i].begindiameter)));
+				for (int j=0; j<packinfo.gsd.numbershapes;j++)
+				{
+					in.shaperatios[j]=packinfo.gsd.intervals[i].shaperatios[j];
+				}
 				packinfo.gsd.inters.push_back(in);
 				packinfo.gsd.numberinters++;
 			}
@@ -371,6 +408,10 @@ inline void Soil::CompleteGsdData(DEM::SequentialPackingData&packinfo)
 				count1 = packinfo.gsd.intervals[i].end;
 				in.end=count1;
 				in.enddiameter=packinfo.gsd.intervals[i].enddiameter;
+				for (int j=0; j<packinfo.gsd.numbershapes;j++)
+				{
+					in.shaperatios[j]=packinfo.gsd.intervals[i].shaperatios[j];
+				}
 				packinfo.gsd.inters.push_back(in);
 				packinfo.gsd.numberinters++;
 			}
@@ -410,7 +451,7 @@ inline void Soil::CompleteGsdData(DEM::SequentialPackingData&packinfo)
 		{
 			vol+=(packinfo.gsd.inters[i].end-packinfo.gsd.inters[i].begin)/packinfo.gsd.inters[i].specialgravity;
 		}
-		packinfo.gsd.mass=100*packinfo.gsd.volume/(vol/(1-packinfo.gsd.porosity));
+		packinfo.gsd.mass=packinfo.gsd.volume/(vol/100/(1-packinfo.gsd.porosity));
 		packinfo.gsd.density = packinfo.gsd.mass/packinfo.gsd.volume;
 		for (int i=0;i<packinfo.gsd.numberinters;i++)
 		{
@@ -420,7 +461,7 @@ inline void Soil::CompleteGsdData(DEM::SequentialPackingData&packinfo)
 	}
 	else
 	{
-		packinfo.gsd.mass=packinfo.gsd.volume*packinfo.gsd.specialgravity*packinfo.gsd.porosity;
+		packinfo.gsd.mass=packinfo.gsd.volume*packinfo.gsd.specialgravity*(1-packinfo.gsd.porosity);
 		packinfo.gsd.density=packinfo.gsd.mass/packinfo.gsd.volume;
 		for (int i=0;i<packinfo.gsd.numberinters;i++)
 		{
@@ -437,6 +478,7 @@ inline void Soil::CompleteGsdData(DEM::SequentialPackingData&packinfo)
 	{
 		packinfo.gsd.rectangularboxratios[i]/=packinfo.gsd.rectangularboxratios[0];
 	}
+	// Textout(packinfo);						//test completion process
 }
 
 inline void Soil::CreateSequentialFace( DEM::SequentialPackingData&packinfo, int p[3],int p3, bool sort)
@@ -553,7 +595,25 @@ inline void Soil::CreateSequentialTetrahedron(DEM::SequentialPackingData&packinf
 		}
 	packinfo.tetrahedrons.push_back(temprorarytetrahedron);
 }
-
+inline void Soil::DeleteUnusedParticles(DEM::SequentialPackingData&packinfo)
+{
+	bool check;
+	for (int i=0;i<packinfo.gsd.numberparticles;i++)
+	{
+		if (packinfo.particleuses[i]==0)
+		{
+			packinfo.specimen.Particles[i]->Tag =-1000;
+			check =true;
+		}
+	}
+	if (check)
+	{
+	    printf("\n%s--- Deleting unused particles --------------------------------------------%s\n",TERM_CLR1,TERM_RST);
+		Array <int> delpar;
+		delpar.Push(-1000);
+		packinfo.specimen.DelParticles(delpar);
+	}
+}
 inline void Soil::DrawBoundary( DEM::SequentialPackingData&packinfo)
 {
 	// Build container
@@ -584,6 +644,37 @@ inline void Soil::DrawBoundary( DEM::SequentialPackingData&packinfo)
 	}
 }
 
+inline void Soil::DropDown(DEM::SequentialPackingData&packinfo)
+{
+	// should have a cylinder boundary
+	if (packinfo.para.starttag<0)
+		{
+			packinfo.specimen.GenBoundingBox(packinfo.para.starttag,0.01,1.2,false);
+			for (int i=packinfo.para.starttag;i>packinfo.para.starttag-6;i--)
+			    {
+			        packinfo.specimen.GetParticle(i)->FixVeloc();
+			    }
+		}
+    Dict P;
+    for (int i=0;i<packinfo.para.numberintervals;i++)
+    {
+    	P.Set(/*Tag*/i*packinfo.para.numbershapes,"Kn Kt Gn Gt Gv Mu",packinfo.para.Kn,packinfo.para.Kt,packinfo.para.Gn,packinfo.para.Gt,packinfo.para.Gv, packinfo.para.Mu);
+        for (int j=1; j<packinfo.para.numbershapes; j++)
+        	{
+        		P.Set(/*Tag*/-i*packinfo.para.numbershapes-j,"Kn Kt Gn Gt Gv Mu",packinfo.para.Kn,packinfo.para.Kt,packinfo.para.Gn,packinfo.para.Gt, packinfo.para.Gv, packinfo.para.Mu);
+        	}
+    }
+    packinfo.specimen.SetProps(P);
+    Vec3_t g(0.0,0.0,-9.8);
+    //packinfo.specimen.Alpha = packinfo.para.Alpha;
+    for (size_t i=0;i<packinfo.specimen.Particles.Size();i++)
+    {
+    	packinfo.specimen.Particles[i]->Ff = packinfo.specimen.Particles[i]->Props.m*g;
+    	//posbefore.Push(particles.Particles[i]->x);
+    }
+    packinfo.specimen.Solve  (/*tf*/packinfo.para.tf, /*dt*/packinfo.para.dt, /*dtOut*/packinfo.para.dtout, NULL, NULL, /*filekey*/packinfo.para.FileKey.c_str(),/*Visit visualization*/packinfo.para.visualization,/*N_proc*/packinfo.para.numberprocessors, /*kinematic energy*/packinfo.para.Kinematicenergy);
+}
+
 inline void Soil::EstablishLocalSystem( DEM::SequentialPackingData&packinfo, int face)
 {
 	packinfo.localsystem[0]= packinfo.specimen.Particles[packinfo.faces[face].points[1]]->x - packinfo.specimen.Particles[packinfo.faces[face].points[0]]->x;
@@ -605,14 +696,36 @@ inline void Soil::FrozenTag(DEM::SequentialPackingData&packinfo, int tag=-1000)
 	}
 }
 
+inline void Soil::MoveOn(DEM::SequentialPackingData&packinfo, int p3, int face)
+{
+	Vec3_t distance = packinfo.specimen.Particles[p3]->x-packinfo.specimen.Particles[packinfo.overlappingpoint]->x;
+	Vec3_t projection = dot(distance,packinfo.faces[face].normal);
+	double move = sqrt(pow(packinfo.specimen.Particles[p3]->Dmax+packinfo.specimen.Particles[packinfo.overlappingpoint]->Dmax,2.0)-pow(norm(distance),2.0)+pow(norm(projection),2.0))-norm(projection);
+	Vec3_t finalposition = packinfo.specimen.Particles[p3]->x-packinfo.faces[face].faceuse*move*packinfo.faces[face].normal;
+	packinfo.specimen.Particles[p3]->Position(finalposition);
+}
+
+inline void Soil::PrintOut(DEM::SequentialPackingData&packinfo)
+{
+	cout << packinfo.gsd.numberinters<<" "<<packinfo.gsd.numberparticles<< " "<<packinfo.numberunusedparticles<<"\n";
+	cout << packinfo.gsd.mass<<" "<<packinfo.gsd.volume<<" "<<packinfo.boundarysizes[0]<<"\n";
+	for (int i=0;i<packinfo.gsd.numberinters;i++)
+	{
+		cout << " "<<i<<" "<<packinfo.gsd.inters[i].ability<<" "<<packinfo.gsd.inters[i].numberparticles<<"\n";
+	}
+}
+
 inline void Soil::PrepareList(DEM::SequentialPackingData&packinfo, bool randomness)
 {
-	double shapemass;
+    printf("\n%s--- Preparing List of particles --------------------------------------------%s\n",TERM_CLR1,TERM_RST);
+	double shapem;
 	double shape;
 	double mass;
 	double passingmass=0;
+	packinfo.gsd.numberparticles =0;
 	if (randomness)
 	{
+		// cout << "random\n";	// check whether random packing
 		for (int i=packinfo.gsd.numberinters-1; i>-1;i--)
 		{
 			packinfo.gsd.inters[i].numberparticles=0;
@@ -632,14 +745,32 @@ inline void Soil::PrepareList(DEM::SequentialPackingData&packinfo, bool randomne
 			{
 				shape+=packinfo.gsd.inters[i].shaperatios[j];
 			}
-			if (shape ==0) throw new Fatal("Error: No proportion for particles in interval from <%s> % to <%d>%", packinfo.gsd.inters[i].begin, packinfo.gsd.inters[i].end);
+			if (shape <=0)
+			{
+				throw new Fatal("Error: No proportion for particles in interval from <%s> % to <%d>%", packinfo.gsd.inters[i].begin, packinfo.gsd.inters[i].end);
+			}
+			else
+			{
+				for (int j=0;j<packinfo.gsd.numbershapes;j++)
+				{
+					packinfo.gsd.inters[i].shaperatios[j] /= shape;
+				}
+			}
 			mass=0.;
 			for (int j=0;j<packinfo.gsd.numbershapes;j++)
 			{
-				shapemass= ShapeMass(packinfo.gsd, j, packinfo.gsd.inters[i].diameter,packinfo.gsd.inters[i].specialgravity);
-				packinfo.gsd.inters[i].shapestates[j][0] = floor(packinfo.gsd.inters[i].shaperatios[j]/shape* (packinfo.gsd.inters[i].mass)/shapemass);
-				packinfo.gsd.inters[i].numberparticles += packinfo.gsd.inters[i].shapestates[j][0];
-				mass += packinfo.gsd.inters[i].shapestates[j][0]*shapemass;
+				if (packinfo.gsd.inters[i].shaperatios[j]>0)
+				{
+
+					shapem= ShapeMass(packinfo, j, packinfo.gsd.inters[i].diameter,packinfo.gsd.inters[i].specialgravity);
+					packinfo.gsd.inters[i].shapestates[j][0] = floor(packinfo.gsd.inters[i].shaperatios[j]* packinfo.gsd.inters[i].mass/shapem);
+					packinfo.gsd.inters[i].numberparticles += packinfo.gsd.inters[i].shapestates[j][0];
+					mass += packinfo.gsd.inters[i].shapestates[j][0]*shapem;
+				}
+				else
+				{
+					packinfo.gsd.inters[i].shapestates[j][0]=0;
+				}
 			}
 			passingmass = packinfo.gsd.inters[i].mass -mass;
 			packinfo.gsd.inters[i].mass = mass;
@@ -654,7 +785,7 @@ inline void Soil::PrepareList(DEM::SequentialPackingData&packinfo, bool randomne
 		}
 		// Add particles
 		size_t count =0;
-		for (int i=packinfo.gsd.numberinters-1; i>-1;i--)
+		for (int i=0; i<packinfo.gsd.numberinters;i++)
 		{
 			if (packinfo.gsd.inters[i].ability)
 			{
@@ -665,16 +796,17 @@ inline void Soil::PrepareList(DEM::SequentialPackingData&packinfo, bool randomne
 					{
 						packinfo.gsd.inters[i].shapestates[j][1]=count;
 						packinfo.gsd.inters[i].shapestates[j][3]=count;
-						for (int k=0; k<packinfo.gsd.inters[i].shapestates[0];k++)
+						for (int k=0; k<packinfo.gsd.inters[i].shapestates[j][0];k++)
 						{
 							AddParticle(packinfo, i, j, packinfo.gsd.inters[i].diameter,packinfo.gsd.inters[i].specialgravity,OrthoSys::O,packinfo.gsd.inters[0].begindiameter/2);
+							packinfo.particleuses.push_back(false);
 							count+=1;
 						}
 						packinfo.gsd.inters[i].shapestates[j][2]=count-1;
 					}
 					else
 					{
-						for (int k=1; k<4;k++)
+						for (int k=2; k<4;k++)
 						{
 							packinfo.gsd.inters[i].shapestates[j][k]=-1;
 						}
@@ -686,10 +818,16 @@ inline void Soil::PrepareList(DEM::SequentialPackingData&packinfo, bool randomne
 		}
 		packinfo.gsd.numberparticles = packinfo.specimen.Particles.Size();
 	}
+	//PrintOut(packinfo);			//Test list prepare process
 }
 
 inline void Soil::PutSequentialParticle(DEM::SequentialPackingData&packinfo, int face, int p3)
 {
+	if (p3==366)
+	{
+		bool check;
+		check =true;
+	}
 	EstablishLocalSystem(packinfo,face);															// calculate local coordinates system
 	packinfo.checkradius =false;
 	double r[4];
@@ -725,19 +863,60 @@ inline void Soil::PutSequentialParticle(DEM::SequentialPackingData&packinfo, int
 		}
 }
 
+inline void Soil::ReadDemParameters(DEM::SequentialPackingData&packinfo, string FileKey)
+{
+	string filename = FileKey;
+	filename.append(".par");
+	if (!Util::FileExists(filename))
+	{
+		string f="../src/";
+		f.append(filename.c_str());
+		filename =f;
+		if (!Util::FileExists(filename)) throw new Fatal("File <%s> not found",filename.c_str());
+	}
+    ifstream datain;
+    datain.open(filename.c_str());
+    printf("\n%s--- Loading DEM parameters file %s --------------------------------------------%s\n",TERM_CLR1,filename.c_str(),TERM_RST);
+	datain >> packinfo.para.Kn;					datain.ignore(200,'\n');
+	datain >> packinfo.para.Kt;					datain.ignore(200,'\n');
+	datain >> packinfo.para.Gn;					datain.ignore(200,'\n');
+	datain >> packinfo.para.Gt;					datain.ignore(200,'\n');
+	datain >> packinfo.para.Gv;					datain.ignore(200,'\n');
+	datain >> packinfo.para.Mu;					datain.ignore(200,'\n');
+	datain >> packinfo.para.dt;					datain.ignore(200,'\n');
+	datain >> packinfo.para.tf;					datain.ignore(200,'\n');
+	datain >> packinfo.para.dtout;				datain.ignore(200,'\n');
+	datain >> packinfo.para.FileKey;			datain.ignore(200,'\n');
+	datain >> packinfo.para.visualization;		datain.ignore(200,'\n');
+	datain >> packinfo.para.numberprocessors;	datain.ignore(200,'\n');
+	datain >> packinfo.para.roundratio;			datain.ignore(200,'\n');
+	datain >> packinfo.para.Alpha;     			datain.ignore(200,'\n');
+	datain >> packinfo.para.Kinematicenergy;  	datain.ignore(200,'\n');
+	datain >> packinfo.para.starttag;  			datain.ignore(200,'\n');
+	datain >> packinfo.para.numbershapes;		datain.ignore(200,'\n');
+	datain >> packinfo.para.numberintervals; 	datain.ignore(200,'\n');
+	datain.close();
+}
+
 inline void Soil::ReadGsd( DEM::SequentialPackingData&packinfo, string FileKey)
 {
 	string filename=FileKey;
 	filename.append(".gsd");
-	if (!Util::FileExists(filename)) throw new Fatal("File <%s> not found",filename.c_str());
+	if (!Util::FileExists(filename))
+	{
+		string f="../src/";
+		f.append(filename.c_str());
+		filename =f;
+		if (!Util::FileExists(filename)) throw new Fatal("File <%s> not found",filename.c_str());
+	}
     ifstream datain;
     datain.open(filename.c_str());
     printf("\n%s--- Loading GSD file %s --------------------------------------------%s\n",TERM_CLR1,filename.c_str(),TERM_RST);
-    datain >> packinfo.gsd.Soilname;					datain.ignore(200,'\n');
+    datain >> packinfo.gsd.Soilname;						datain.ignore(200,'\n');
     datain >> packinfo.boundarytype;						datain.ignore(200,'\n');
     if (packinfo.boundarytype =="File")
     {
-    	datain >>packinfo.gsd.boundaryfile;			datain.ignore(200,'\n');
+    	datain >>packinfo.gsd.boundaryfile;					datain.ignore(200,'\n');
     	packinfo.gsd.boundaryfile.append(".h5");
     	if (!Util::FileExists(filename)) throw new Fatal("File <%s> not found",packinfo.gsd.boundaryfile.c_str());
     	// how to check overlap with boundary object ?
@@ -756,15 +935,14 @@ inline void Soil::ReadGsd( DEM::SequentialPackingData&packinfo, string FileKey)
     		datain >> packinfo.boundaryfactors[i];
     	}
     }
-    										datain.ignore(200,'\n');
-    datain >> packinfo.gsd.arrangement;				datain.ignore(200,'\n');
-    datain >> packinfo.numberprocessors; 	datain.ignore(200,'\n');
+    												datain.ignore(200,'\n');
+    datain >> packinfo.gsd.arrangement;				datain.ignore(200,'\n');		// type of grain arrangement
+    datain >> packinfo.numberprocessors; 			datain.ignore(200,'\n');
     datain >> packinfo.gsd.specialgravity;			datain.ignore(200,'\n');
-    datain >> packinfo.gsd.porosity;					datain.ignore(200,'\n');
-    datain >> packinfo.gsd.maxfraction;				datain.ignore(200,'\n');
+    datain >> packinfo.gsd.porosity;				datain.ignore(200,'\n');
+    datain >> packinfo.gsd.maxfraction;				datain.ignore(200,'\n');		// Maximum fraction of a divided interval
     datain >> packinfo.gsd.numberintervals;
-    datain >> packinfo.gsd.numbershapes;				datain.ignore(200,'\n');
-    cout << packinfo.gsd.numbershapes <<"\n";
+    datain >> packinfo.gsd.numbershapes;			datain.ignore(200,'\n');
     DEM::Interval inter;
     for (int i=0; i<packinfo.gsd.numberintervals; i++)
     {
@@ -774,18 +952,27 @@ inline void Soil::ReadGsd( DEM::SequentialPackingData&packinfo, string FileKey)
     	for (int j=0; j <packinfo.gsd.numbershapes; j++)
     	{
     		datain >> inter.shaperatios[j];
-    		cout << inter.shaperatios[j];
     	}
-    										datain.ignore(200,'\n');
+    												datain.ignore(200,'\n');
     	packinfo.gsd.intervals.push_back(inter);
     }
     datain >> packinfo.approximation;
     for (int i =0; i<3; i++)
     {
-    	datain >> packinfo.gsd.rectangularboxratios[i];
+    	datain >> packinfo.gsd.rectangularboxratios[i];								// rectangular size ratio
     }
-    										datain.ignore(200,'\n');
+    												datain.ignore(200,'\n');
     datain.close();
+    //cout << packinfo.boundarytype<<"\n"; //test reading process
+}
+
+inline void Soil::SaveDomain(DEM::Domain&specimen,string filename, int outputtype)
+{
+	if (outputtype==1)
+	{
+		specimen.WriteXDMF(filename.c_str());
+	}
+	specimen.Save(filename.c_str());
 }
 
 inline void Soil::SequentialPacking(DEM::SequentialPackingData&packinfo)
@@ -798,10 +985,6 @@ inline void Soil::SequentialPacking(DEM::SequentialPackingData&packinfo)
 	packinfo.particlereuse =false;
 	packinfo.facereuse =false;
 	packinfo.check=true;
-	for (int i=0; i<packinfo.gsd.numberparticles; i++)
-	{
-		packinfo.particleuses.push_back(false);
-	}
 	if (packinfo.gsd.arrangement=="Layer")
 	{
 
@@ -812,11 +995,15 @@ inline void Soil::SequentialPacking(DEM::SequentialPackingData&packinfo)
 		packinfo.usingparticle = packinfo.specimen.Particles.Size()-1;
 		int p[4]= {packinfo.usingparticle, packinfo.usingparticle-1, packinfo.usingparticle-2, packinfo.usingparticle-3};
 		BasicTetrahedron(packinfo,p);	// create initial tetrahedron
-
 		packinfo.usingparticle -=4;
 		// packing loop
+	    printf("\n%s--- Sequentially packing --------------------------------------------%s\n",TERM_CLR1,TERM_RST);
 		while ((packinfo.numberopenfaces >0)and(packinfo.numberunusedparticles >0))
 		{
+			if (packinfo.numberunusedparticles%1000==0)
+			{
+				cout << packinfo.numberunusedparticles<<"\n";
+			}
 			while (packinfo.particleuses[packinfo.usingparticle])
 				{
 					packinfo.usingparticle -=1;
@@ -834,21 +1021,131 @@ inline void Soil::SequentialPacking(DEM::SequentialPackingData&packinfo)
 						}
 				}
 			TrySequentialParticle( packinfo, packinfo.usingface, packinfo.usingparticle);
+			if (packinfo.checkradius and packinfo.checkoverlap and packinfo.checkboundary)
+			{
+				CreateSequentialTetrahedron(packinfo,packinfo.usingface,packinfo.temproraryparticle);
+				if (packinfo.particleuses[packinfo.temproraryparticle])
+				{
+					packinfo.particlereuse= false;
+				}
+				else
+				{
+					UseParticle(packinfo,packinfo.temproraryparticle);
+				}
+			}
+			CloseSequentialFace(packinfo, packinfo.usingface);
 		}
 	}
+}
+
+inline void Soil::TextOut(DEM::SequentialPackingData&packinfo)
+{
+	ofstream dataout;
+	String fn;
+	fn.Printf("%s.%s",packinfo.gsd.Soilname.c_str(),"out");
+	dataout.open(fn.c_str());
+	dataout<< packinfo.gsd.numberparticles<< " number of particles \n";
+	dataout<< packinfo.numberunusedparticles<<" number of unused particles \n";
+	dataout<< packinfo.numberfaces<<" number of faces \n";
+	dataout<< packinfo.numberopenfaces<< " number of open faces \n";
+	dataout<< packinfo.boundarytype<<" "<<packinfo.gsd.volume<<" "<<packinfo.boundarysizes[0]<<"\n";
+	for (int i=0;i<packinfo.gsd.numberinters;i++)
+	{
+		dataout<< " "<<i<<" "<<packinfo.gsd.inters[i].diameter<<" "<<packinfo.gsd.inters[i].numberparticles<<" "<<packinfo.gsd.inters[i].mass<<" "<<packinfo.gsd.inters[i].firstparticle<< " "<<packinfo.gsd.inters[i].lastparticle<<"\n";
+	}
+	dataout<<"List of unused particles \n";
+	for (int i=0; i < packinfo.gsd.numberinters;i++)
+	{
+		if (packinfo.gsd.inters[i].ability)
+		{
+			dataout<< " "<<i<<" : "<<packinfo.gsd.inters[i].usingparticle<< " "<<packinfo.gsd.inters[i].firstparticle<<"\n";
+		}
+	}
+	dataout.close();
+
 }
 
 inline void Soil::TrySequentialParticle( DEM::SequentialPackingData&packinfo, int face, int p3)
 {
 	packinfo.temproraryparticle = p3;
-	double distancepoint =0;
-	double distanceoverlap =0;
 	PutSequentialParticle(packinfo,face,p3);
 	CheckOverlap( packinfo, p3);
 	CheckBoundary(packinfo,p3);
 	if ((!packinfo.checkradius)or (!packinfo.checkboundary) or (!packinfo.checkoverlap))
 	{
-		int interval = floor(abs(packinfo.specimen.Particles[packinfo.temproraryparticle]->Tag)/packinfo.gsd.numbershapes);
+		double distancepoint =0;
+		double distanceoverlap =0;
+		int interval = GetInterval(packinfo, packinfo.temproraryparticle);
+		distancepoint = dot(packinfo.specimen.Particles[packinfo.faces[face].point]->x - packinfo.specimen.Particles[packinfo.faces[face].points[0]]->x,packinfo.faces[face].normal);
+		if (packinfo.specimen.Particles[packinfo.temproraryparticle]->Dmax >packinfo.faces[face].constrictionsize)					// if particle size is bigger than constriction size
+		{
+			while ((!packinfo.checkboundary)or(!packinfo.checkradius)or(!packinfo.checkoverlap))									// try to reduce size of particles
+			{
+				interval-=1;
+				if ((interval<0)or(packinfo.gsd.inters[interval].diameter>packinfo.faces[face].constrictionsize))					// if random list, so should be usingparticle diameter
+				{
+					if (interval<packinfo.gsd.numberinters-1)
+					{
+						interval+=1;
+					}
+					break;
+				}
+				if (packinfo.gsd.inters[interval].ability)
+				{
+					packinfo.temproraryparticle=packinfo.gsd.inters[interval].usingparticle;
+					PutSequentialParticle(packinfo,face,packinfo.temproraryparticle);
+					CheckOverlap(packinfo,packinfo.temproraryparticle);
+					CheckBoundary(packinfo,packinfo.temproraryparticle);
+					if ((packinfo.checkboundary)and(packinfo.checkradius)and(!packinfo.checkoverlap))								// if overlap only
+					{
+						distanceoverlap=dot(packinfo.specimen.Particles[packinfo.overlappingpoint]->x - packinfo.specimen.Particles[packinfo.faces[face].points[0]]->x,packinfo.faces[face].normal);
+						while ((distancepoint*distanceoverlap>0)and (!packinfo.checkoverlap)and(packinfo.checkboundary))
+						{
+							MoveOn(packinfo,packinfo.temproraryparticle,face);
+							CheckOverlap(packinfo,packinfo.temproraryparticle);
+							CheckBoundary(packinfo,packinfo.temproraryparticle);
+							if (!packinfo.checkoverlap)
+							{
+								distanceoverlap = dot(packinfo.specimen.Particles[packinfo.overlappingpoint]->x - packinfo.specimen.Particles[packinfo.faces[face].points[0]]->x,packinfo.faces[face].normal);
+							}
+						}
+					}
+				}
+			}
+		}
+		if ((!packinfo.checkradius)or (!packinfo.checkboundary)or(!packinfo.checkoverlap))						// if particle size is smaller than constriction size
+		{
+			while ((!packinfo.checkboundary)or(!packinfo.checkradius)or(!packinfo.checkoverlap))
+			{
+				interval -=1;
+				if (interval <0)
+				{
+					break;
+				}
+				if (packinfo.gsd.inters[interval].ability)
+				{
+					packinfo.temproraryparticle = packinfo.gsd.inters[interval].usingparticle;
+					packinfo.specimen.Particles[packinfo.temproraryparticle]->Position(packinfo.faces[face].constrictioncentre-packinfo.approximation*packinfo.faces[face].normal*packinfo.faces[face].faceuse);
+					CheckBoundary(packinfo,packinfo.temproraryparticle);
+					CheckOverlap(packinfo,packinfo.temproraryparticle);
+					if ((packinfo.checkboundary)and(packinfo.checkradius)and(!packinfo.checkoverlap))								// if overlap only
+					{
+						distanceoverlap=dot(packinfo.specimen.Particles[packinfo.overlappingpoint]->x - packinfo.specimen.Particles[packinfo.faces[face].points[0]]->x,packinfo.faces[face].normal);
+						while ((distancepoint*distanceoverlap>0)and (!packinfo.checkoverlap)and(packinfo.checkboundary))
+						{
+							MoveOn(packinfo,packinfo.temproraryparticle,face);
+							CheckOverlap(packinfo,packinfo.temproraryparticle);
+							CheckBoundary(packinfo,packinfo.temproraryparticle);
+							if (!packinfo.checkoverlap)
+							{
+								distanceoverlap = dot(packinfo.specimen.Particles[packinfo.overlappingpoint]->x - packinfo.specimen.Particles[packinfo.faces[face].points[0]]->x,packinfo.faces[face].normal);
+							}
+						}
+					}
+				}
+			}
+		}
+
 	}
 }
 
@@ -857,6 +1154,7 @@ inline void Soil::UseParticle( DEM::SequentialPackingData&packinfo, int p3)
 	if (packinfo.particleuses[p3])
 	{
 		cout << "Particle " << p3 << " has been used before \n";
+		return;
 	}
 	packinfo.particleuses[p3]=true;
 	packinfo.numberunusedparticles-=1;
@@ -872,12 +1170,19 @@ inline void Soil::UseParticle( DEM::SequentialPackingData&packinfo, int p3)
 		}
 }
 }
+
 int main(int argc, char **argv)
 {
 	DEM::Soil sand;
 	DEM::SequentialPackingData packinfo;
-	sand.ReadGsd(packinfo);
+	sand.ReadGsd(packinfo,"sergio");
 	sand.CompleteGsdData(packinfo);
-	sand.PrepareList(packinfo, false);
+	sand.PrepareList(packinfo);
 	sand.SequentialPacking(packinfo);
+	sand.DeleteUnusedParticles(packinfo);
+	sand.SaveDomain(packinfo.specimen,packinfo.gsd.Soilname,1);
+	sand.TextOut(packinfo);
+	sand.ReadDemParameters(packinfo,"sergio");
+	sand.DropDown(packinfo);
+	sand.SaveDomain(packinfo.specimen,packinfo.gsd.Soilname,1);
 }

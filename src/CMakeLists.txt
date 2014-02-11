@@ -24,11 +24,12 @@ SET(PROGS
     continuousdrop
     CSD
     diverseCSD
-    randomCSD
     dem
     drop
     dropfactor
     droppart
+    GSD
+    randomCSD
     sample
     shape
     slicesphere
