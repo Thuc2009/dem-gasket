@@ -109,6 +109,7 @@ struct SequentialPackingData
 	vector <int> threadnumbers;
 	Vec3_t localroot;
 	Vec3_t localsystem[3];
+	Vec3_t position;
 	bool check;
 	bool checkboundary;
 	bool checkoverlap;
@@ -147,7 +148,7 @@ public:
     // Destructor
     ~Soil();
     // List of functions
-
+    double ConstrictionSize(DEM::SequentialPackingData&packinfo, int p0, int p1, int p2);
     double ShapeMass(DEM::SequentialPackingData&packinfo, int shape, double size, double density);
     int GetInterval(DEM::SequentialPackingData&packinfo, int p0);
     void AddParticle( DEM::SequentialPackingData&packinfo, int inter, int shape, double size, double density, Vec3_t position, double roundness=0.005);
@@ -156,7 +157,7 @@ public:
     void CheckOverlap( DEM::SequentialPackingData&packinfo, int p3);
     void CloseSequentialFace(DEM::SequentialPackingData&packinfo, int face);
     void CompleteGsdData(DEM::SequentialPackingData&packinfo);
-    void CreateSequentialFace(DEM::SequentialPackingData&packinfo, int p[3],int p3, bool sort=true);
+    void CreateSequentialFace(DEM::SequentialPackingData&packinfo, int p0, int p1, int p2,int p3, bool sort=true);
     void CreateSequentialTetrahedron(DEM::SequentialPackingData&packinfo, int face, int p3);
     void DeleteUnusedParticles(DEM::SequentialPackingData&packinfo);
     void DrawBoundary(DEM::SequentialPackingData&packinfo);
@@ -164,6 +165,8 @@ public:
     void EstablishLocalSystem(DEM::SequentialPackingData&packinfo, int face);
     void FrozenTag(DEM::SequentialPackingData&packinfo, int tag);
     void MoveOn(DEM::SequentialPackingData&packinfo, int p3,int face);
+    void ParticleInfo(DEM::SequentialPackingData&packinfo,int p0);
+    void PlaceSequentialParticle(DEM::SequentialPackingData&packinfo,int face, int p3);							// for layer arrangement
     void PrepareList(DEM::SequentialPackingData&packinfo, bool randomness=false);
     void PrintOut(DEM::SequentialPackingData&packinfo);
 	void PutSequentialParticle(DEM::SequentialPackingData&packinfo, int face, int p3);
@@ -183,6 +186,43 @@ inline Soil::Soil(void * UD)
 inline Soil::~Soil()
 {}
 
+inline double Soil::ConstrictionSize(DEM::SequentialPackingData&packinfo,int p0, int p1, int p2)
+{
+	Vec3_t x = packinfo.specimen.Particles[p1]->x-packinfo.specimen.Particles[p0]->x;
+	double x2 = norm(x);																										// get coordinates of particles in local coordinate system
+	x = x/x2;
+	double x3 = dot(packinfo.specimen.Particles[p2]->x - packinfo.specimen.Particles[p0]->x, x);
+	Vec3_t y = (packinfo.specimen.Particles[p2]->x-packinfo.specimen.Particles[p0]->x-x3*x);
+	double y3 = norm(y);
+	y=y/y3;
+	double a1 = (packinfo.specimen.Particles[p0]->Dmax-packinfo.specimen.Particles[p1]->Dmax)/x2;
+	double a2 = (packinfo.specimen.Particles[p0]->Dmax -packinfo.specimen.Particles[p2]->Dmax-a1*x3)/y3;
+	double b1 = (pow(x2,2.0)+pow(packinfo.specimen.Particles[p0]->Dmax,2.0)-pow(packinfo.specimen.Particles[p1]->Dmax,2.0))/2.0/x2;
+	double b2 = (pow(x3,2.0)+pow(y3,2.0)+pow(packinfo.specimen.Particles[p0]->Dmax,2.0)-pow(packinfo.specimen.Particles[p2]->Dmax,2.0)-2*b1*x3)/2/y3;
+	double a = pow(a1,2.0)+pow(a2,2.0)-1;
+	double b = a1*b1+a2*b2-packinfo.specimen.Particles[p0]->Dmax;
+	double c = pow(b1, 2.0) +pow(b2, 2.0) - pow(packinfo.specimen.Particles[p0]->Dmax, 2.0);
+	if (b*b-a*c >0.)
+		{
+			double constriction = (-b-pow(b*b-a*c,0.5))/a;
+			if (constriction > packinfo.approximation)
+			{
+				packinfo.position = (a1*constriction+b1)*x+(a2*constriction+b2)*y+packinfo.specimen.Particles[p0]->x;
+				return (constriction);
+			}
+			else
+			{
+				cout << "constriction problems \n";
+				packinfo.check =false;
+				return (0.0);
+			}
+		}
+	else
+		{
+			cout << packinfo.numberfaces<<" no constriction \n";
+			return (0.0);
+		}
+}
 inline double Soil::ShapeMass(DEM::SequentialPackingData&packinfo, int shape, double size, double density)
 {
 	double mass;
@@ -251,8 +291,7 @@ inline void Soil::BasicTetrahedron(DEM::SequentialPackingData&packinfo, int p[4]
 	packinfo.specimen.Particles[p[1]]->Position(Vec3_t(r[0]+r[1],0.,0.));
 	double x = (pow(r[0]+r[1],2)+pow(r[0]+r[2],2)-pow(r[1]+r[2],2))/2/(r[0]+r[1]);
 	packinfo.specimen.Particles[p[2]]->Position(Vec3_t(x, pow(pow(r[0]+r[2],2)-pow(x,2),0.5),0.));
-	int f[3]={p[0],p[1],p[2]};
-	CreateSequentialFace(packinfo,f,p[3],true);
+	CreateSequentialFace(packinfo,p[0],p[1],p[2],p[3],true);
 	PutSequentialParticle(packinfo,0,packinfo.usingparticle-3);
 	CreateSequentialTetrahedron(packinfo, 0,packinfo.usingparticle-3);
 	packinfo.faces[0].faceuse=1;																											// mark used side
@@ -481,8 +520,9 @@ inline void Soil::CompleteGsdData(DEM::SequentialPackingData&packinfo)
 	// Textout(packinfo);						//test completion process
 }
 
-inline void Soil::CreateSequentialFace( DEM::SequentialPackingData&packinfo, int p[3],int p3, bool sort)
+inline void Soil::CreateSequentialFace( DEM::SequentialPackingData&packinfo, int p0, int p1, int p2,int p3, bool sort)
 {
+	int p[3]={p0,p1,p2};
 	if (sort)
 	{
 		int count;
@@ -507,11 +547,13 @@ inline void Soil::CreateSequentialFace( DEM::SequentialPackingData&packinfo, int
 		facetemprorary.points[i]=p[i];
 		V[i]= packinfo.specimen.Particles[p[i]]->x;
 	}
-	// need to calculate constriction ?
+
 	DEM::Face facedemtemprorary(V);															// add face in library
 	facedemtemprorary.Normal(facetemprorary.normal);
 	facetemprorary.normal /= norm(facetemprorary.normal);
 	facetemprorary.point = p3;
+	facetemprorary.constrictionsize = ConstrictionSize(packinfo, facetemprorary.points[0],facetemprorary.points[1],facetemprorary.points[2]);
+	facetemprorary.constrictioncentre = packinfo.position;
 	double distance = dot(packinfo.specimen.Particles[p3]->x - packinfo.specimen.Particles[facetemprorary.points[0]]->x, facetemprorary.normal);
 	if (distance>0)
 	{
@@ -560,8 +602,7 @@ inline void Soil::CreateSequentialTetrahedron(DEM::SequentialPackingData&packinf
 {
 	DEM::SequentialTetrahedron temprorarytetrahedron;
 	temprorarytetrahedron.faces[0]= face;
-	int p[3]={packinfo.faces[face].points[0], packinfo.faces[face].points[1], p3};
-	CreateSequentialFace(packinfo, p, packinfo.faces[face].points[2]);
+	CreateSequentialFace(packinfo, packinfo.faces[face].points[0], packinfo.faces[face].points[1], p3, packinfo.faces[face].points[2]);
 	if (packinfo.facereuse)
 		{
 			temprorarytetrahedron.faces[1]= packinfo.facereusenumber;
@@ -571,8 +612,7 @@ inline void Soil::CreateSequentialTetrahedron(DEM::SequentialPackingData&packinf
 		{
 			temprorarytetrahedron.faces[1]= packinfo.numberfaces-1;
 		}
-	p[1]= packinfo.faces[face].points[2];
-	CreateSequentialFace(packinfo,p, packinfo.faces[face].points[1]);
+	CreateSequentialFace(packinfo,packinfo.faces[face].points[0], packinfo.faces[face].points[2], p3, packinfo.faces[face].points[1]);
 	if (packinfo.facereuse)
 		{
 			temprorarytetrahedron.faces[2]= packinfo.facereusenumber;
@@ -582,8 +622,7 @@ inline void Soil::CreateSequentialTetrahedron(DEM::SequentialPackingData&packinf
 		{
 			temprorarytetrahedron.faces[2]= packinfo.numberfaces-1;
 		}
-	p[0]=packinfo.faces[face].points[1];
-	CreateSequentialFace( packinfo,p, packinfo.faces[face].points[0]);
+	CreateSequentialFace( packinfo,packinfo.faces[face].points[1], packinfo.faces[face].points[2], p3, packinfo.faces[face].points[0]);
 	if (packinfo.facereuse)
 		{
 			temprorarytetrahedron.faces[3]= packinfo.facereusenumber;
@@ -705,6 +744,41 @@ inline void Soil::MoveOn(DEM::SequentialPackingData&packinfo, int p3, int face)
 	packinfo.specimen.Particles[p3]->Position(finalposition);
 }
 
+inline void Soil::ParticleInfo(DEM::SequentialPackingData&packinfo,int p0)
+{
+	cout<< "Particle: "<<p0<<" Dmax: "<<packinfo.specimen.Particles[p0]->Dmax<<"\n";
+	cout<< " 	x: "<<packinfo.specimen.Particles[p0]->x<< "\n";
+}
+
+inline void Soil::PlaceSequentialParticle(DEM::SequentialPackingData&packinfo,int face,int p3)
+{
+	packinfo.temproraryparticle=p3;
+	PutSequentialParticle(packinfo,face,packinfo.temproraryparticle);
+	CheckOverlap(packinfo, packinfo.temproraryparticle);
+	CheckBoundary(packinfo,packinfo.temproraryparticle);
+	if ((!packinfo.checkoverlap)and (packinfo.checkboundary)and(packinfo.checkradius))			// if overlap only
+	{
+		double distanceoverlap=0.;
+		double distancepoint = dot(packinfo.specimen.Particles[packinfo.faces[face].point]->x - packinfo.specimen.Particles[packinfo.faces[face].points[0]]->x,packinfo.faces[face].normal);
+		while ((!packinfo.checkoverlap)and(packinfo.checkboundary))
+		{
+			distanceoverlap=dot(packinfo.specimen.Particles[packinfo.overlappingpoint]->x - packinfo.specimen.Particles[packinfo.faces[face].points[0]]->x,packinfo.faces[face].normal);
+			if (distanceoverlap*distancepoint <0)
+			{
+				packinfo.temproraryparticle =packinfo.overlappingpoint;
+				packinfo.particlereuse =true;
+				packinfo.checkoverlap=true;
+			}
+			else
+			{
+				MoveOn(packinfo,packinfo.temproraryparticle,face);
+				CheckOverlap(packinfo,packinfo.temproraryparticle);
+				CheckBoundary(packinfo,packinfo.temproraryparticle);
+			}
+		}
+	}
+}
+
 inline void Soil::PrintOut(DEM::SequentialPackingData&packinfo)
 {
 	cout << packinfo.gsd.numberinters<<" "<<packinfo.gsd.numberparticles<< " "<<packinfo.numberunusedparticles<<"\n";
@@ -823,19 +897,14 @@ inline void Soil::PrepareList(DEM::SequentialPackingData&packinfo, bool randomne
 
 inline void Soil::PutSequentialParticle(DEM::SequentialPackingData&packinfo, int face, int p3)
 {
-	if (p3==366)
-	{
-		bool check;
-		check =true;
-	}
 	EstablishLocalSystem(packinfo,face);															// calculate local coordinates system
 	packinfo.checkradius =false;
 	double r[4];
 	for (int i =0;i<3;i++)
 		{
-			r[i] = packinfo.specimen.Particles[packinfo.faces[face].points[i]]->Props.R;
+			r[i] = packinfo.specimen.Particles[packinfo.faces[face].points[i]]->Dmax;
 		}
-	r[3]=packinfo.specimen.Particles[p3]->Props.R;
+	r[3]=packinfo.specimen.Particles[p3]->Dmax;
 	double x2 = norm(packinfo.specimen.Particles[packinfo.faces[face].points[1]]->x -packinfo.specimen.Particles[packinfo.faces[face].points[0]]->x);
 	double a1 = (r[0] -r[1])/x2;
 	double b1 = (pow(x2,2.)+pow(r[0],2.)-pow(r[1],2.))/2./x2;
@@ -985,57 +1054,59 @@ inline void Soil::SequentialPacking(DEM::SequentialPackingData&packinfo)
 	packinfo.particlereuse =false;
 	packinfo.facereuse =false;
 	packinfo.check=true;
-	if (packinfo.gsd.arrangement=="Layer")
+	packinfo.usinginter = packinfo.gsd.numberinters-1;
+	packinfo.usingparticle = packinfo.specimen.Particles.Size()-1;
+	int p[4]= {packinfo.usingparticle, packinfo.usingparticle-1, packinfo.usingparticle-2, packinfo.usingparticle-3};
+	BasicTetrahedron(packinfo,p);	// create initial tetrahedron
+	packinfo.usingparticle -=4;
+	// packing loop
+    printf("\n%s--- Sequentially packing --------------------------------------------%s\n",TERM_CLR1,TERM_RST);
+	while ((packinfo.numberopenfaces >0)and(packinfo.numberunusedparticles >0))
 	{
-
-	}
-	else if (packinfo.gsd.arrangement=="Discrete")
-	{
-		packinfo.usinginter = packinfo.gsd.numberinters-1;
-		packinfo.usingparticle = packinfo.specimen.Particles.Size()-1;
-		int p[4]= {packinfo.usingparticle, packinfo.usingparticle-1, packinfo.usingparticle-2, packinfo.usingparticle-3};
-		BasicTetrahedron(packinfo,p);	// create initial tetrahedron
-		packinfo.usingparticle -=4;
-		// packing loop
-	    printf("\n%s--- Sequentially packing --------------------------------------------%s\n",TERM_CLR1,TERM_RST);
-		while ((packinfo.numberopenfaces >0)and(packinfo.numberunusedparticles >0))
+		if (packinfo.numberunusedparticles%1000==0)
 		{
-			if (packinfo.numberunusedparticles%1000==0)
-			{
-				cout << packinfo.numberunusedparticles<<"\n";
-			}
-			while (packinfo.particleuses[packinfo.usingparticle])
-				{
-					packinfo.usingparticle -=1;
-					if (packinfo.usingparticle==0)
-						{
-							break;
-						}
-					}
-			while (packinfo.faces[packinfo.usingface].faceuse == 0)
-				{
-					packinfo.usingface +=1;
-					if (packinfo.usingface == packinfo.numberfaces)
-						{
-							break;
-						}
-				}
-			TrySequentialParticle( packinfo, packinfo.usingface, packinfo.usingparticle);
-			if (packinfo.checkradius and packinfo.checkoverlap and packinfo.checkboundary)
-			{
-				CreateSequentialTetrahedron(packinfo,packinfo.usingface,packinfo.temproraryparticle);
-				if (packinfo.particleuses[packinfo.temproraryparticle])
-				{
-					packinfo.particlereuse= false;
-				}
-				else
-				{
-					UseParticle(packinfo,packinfo.temproraryparticle);
-				}
-			}
-			CloseSequentialFace(packinfo, packinfo.usingface);
+			cout << packinfo.numberunusedparticles<<"\n";
 		}
+		while (packinfo.particleuses[packinfo.usingparticle])
+			{
+				packinfo.usingparticle -=1;
+				if (packinfo.usingparticle==0)
+					{
+						break;
+					}
+				}
+		while (packinfo.faces[packinfo.usingface].faceuse == 0)
+			{
+				packinfo.usingface +=1;
+				if (packinfo.usingface == packinfo.numberfaces)
+					{
+						break;
+					}
+			}
+		if (packinfo.gsd.arrangement=="Layer")
+		{
+			PlaceSequentialParticle(packinfo, packinfo.usingface,packinfo.usingparticle);
+		}
+		else if (packinfo.gsd.arrangement=="Discrete")
+		{
+			TrySequentialParticle( packinfo, packinfo.usingface, packinfo.usingparticle);
+		}
+		if (packinfo.checkradius and packinfo.checkoverlap and packinfo.checkboundary)
+		{
+			CreateSequentialTetrahedron(packinfo,packinfo.usingface,packinfo.temproraryparticle);
+			if (packinfo.particleuses[packinfo.temproraryparticle])
+			{
+				packinfo.particlereuse= false;
+			}
+			else
+			{
+				UseParticle(packinfo,packinfo.temproraryparticle);
+			}
+		}
+		CloseSequentialFace(packinfo, packinfo.usingface);
 	}
+
+
 }
 
 inline void Soil::TextOut(DEM::SequentialPackingData&packinfo)
@@ -1067,10 +1138,14 @@ inline void Soil::TextOut(DEM::SequentialPackingData&packinfo)
 
 inline void Soil::TrySequentialParticle( DEM::SequentialPackingData&packinfo, int face, int p3)
 {
+	if ((packinfo.numberfaces>627)and(packinfo.numberfaces<631))
+	{
+		packinfo.check=true;
+	}
 	packinfo.temproraryparticle = p3;
-	PutSequentialParticle(packinfo,face,p3);
-	CheckOverlap( packinfo, p3);
-	CheckBoundary(packinfo,p3);
+	PutSequentialParticle(packinfo,face,packinfo.temproraryparticle);
+	CheckOverlap( packinfo, packinfo.temproraryparticle);
+	CheckBoundary(packinfo,packinfo.temproraryparticle);
 	if ((!packinfo.checkradius)or (!packinfo.checkboundary) or (!packinfo.checkoverlap))
 	{
 		double distancepoint =0;
@@ -1082,9 +1157,9 @@ inline void Soil::TrySequentialParticle( DEM::SequentialPackingData&packinfo, in
 			while ((!packinfo.checkboundary)or(!packinfo.checkradius)or(!packinfo.checkoverlap))									// try to reduce size of particles
 			{
 				interval-=1;
-				if ((interval<0)or(packinfo.gsd.inters[interval].diameter>packinfo.faces[face].constrictionsize))					// if random list, so should be usingparticle diameter
+				if ((interval<0)or(packinfo.gsd.inters[interval].diameter<packinfo.faces[face].constrictionsize))					// if random list, so should be usingparticle diameter
 				{
-					if (interval<packinfo.gsd.numberinters-1)
+					if (interval>0)								// if size < constriction size, must +1 to -1 later
 					{
 						interval+=1;
 					}
@@ -1115,7 +1190,8 @@ inline void Soil::TrySequentialParticle( DEM::SequentialPackingData&packinfo, in
 		}
 		if ((!packinfo.checkradius)or (!packinfo.checkboundary)or(!packinfo.checkoverlap))						// if particle size is smaller than constriction size
 		{
-			while ((!packinfo.checkboundary)or(!packinfo.checkradius)or(!packinfo.checkoverlap))
+			packinfo.checkradius =true;
+			while ((!packinfo.checkboundary)or(!packinfo.checkoverlap))
 			{
 				interval -=1;
 				if (interval <0)
@@ -1125,10 +1201,10 @@ inline void Soil::TrySequentialParticle( DEM::SequentialPackingData&packinfo, in
 				if (packinfo.gsd.inters[interval].ability)
 				{
 					packinfo.temproraryparticle = packinfo.gsd.inters[interval].usingparticle;
-					packinfo.specimen.Particles[packinfo.temproraryparticle]->Position(packinfo.faces[face].constrictioncentre-packinfo.approximation*packinfo.faces[face].normal*packinfo.faces[face].faceuse);
+					packinfo.specimen.Particles[packinfo.temproraryparticle]->Position(packinfo.faces[face].constrictioncentre-packinfo.approximation*packinfo.faces[face].normal*packinfo.faces[face].faceuse); // Try to put at the centre of the constriction. Can put next to two other particles
 					CheckBoundary(packinfo,packinfo.temproraryparticle);
 					CheckOverlap(packinfo,packinfo.temproraryparticle);
-					if ((packinfo.checkboundary)and(packinfo.checkradius)and(!packinfo.checkoverlap))								// if overlap only
+					if ((packinfo.checkboundary)and(!packinfo.checkoverlap))								// if overlap only
 					{
 						distanceoverlap=dot(packinfo.specimen.Particles[packinfo.overlappingpoint]->x - packinfo.specimen.Particles[packinfo.faces[face].points[0]]->x,packinfo.faces[face].normal);
 						while ((distancepoint*distanceoverlap>0)and (!packinfo.checkoverlap)and(packinfo.checkboundary))
@@ -1158,7 +1234,7 @@ inline void Soil::UseParticle( DEM::SequentialPackingData&packinfo, int p3)
 	}
 	packinfo.particleuses[p3]=true;
 	packinfo.numberunusedparticles-=1;
-	int inter = floor(abs(packinfo.specimen.Particles[p3]->Tag/packinfo.gsd.numbershapes));
+	int inter =GetInterval(packinfo, p3);
 	packinfo.gsd.inters[inter].usingparticle -=1;
 	if (packinfo.gsd.inters[inter].usingparticle < packinfo.gsd.inters[inter].firstparticle )
 		{
@@ -1175,14 +1251,14 @@ int main(int argc, char **argv)
 {
 	DEM::Soil sand;
 	DEM::SequentialPackingData packinfo;
-	sand.ReadGsd(packinfo,"sergio");
+	sand.ReadGsd(packinfo);
 	sand.CompleteGsdData(packinfo);
 	sand.PrepareList(packinfo);
 	sand.SequentialPacking(packinfo);
 	sand.DeleteUnusedParticles(packinfo);
 	sand.SaveDomain(packinfo.specimen,packinfo.gsd.Soilname,1);
 	sand.TextOut(packinfo);
-	sand.ReadDemParameters(packinfo,"sergio");
-	sand.DropDown(packinfo);
-	sand.SaveDomain(packinfo.specimen,packinfo.gsd.Soilname,1);
+//	sand.ReadDemParameters(packinfo,"sergio");
+//	sand.DropDown(packinfo);
+//	sand.SaveDomain(packinfo.specimen,packinfo.gsd.Soilname,1);
 }

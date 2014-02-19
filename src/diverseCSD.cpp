@@ -271,8 +271,13 @@ int main(int argc, char**argv)try
 	// first loop for putting particles
 	cout << "Sequential packing \n";
 	int usinginterval = dat.usinginterval;
+	cout << dat.numberparticles <<"\n";
 	while ((dat.numberunusedparticles> 0)and(dat.numberopenfaces > 0))
 		{
+			if (dat.numberunusedparticles%1000==0)
+			{
+				cout << dat.numberunusedparticles<<"\n";
+			}
 			while (dat.particlesuse[dat.usingparticle])
 				{
 					dat.usingparticle -=1;
@@ -1047,7 +1052,7 @@ inline void tryputparticle(data&dat,int p0, int m0)
 								interval -=1;
 								if ((interval <0)or (dat.intervals[interval].radius < dat.faces[usingface].constrictionsize))
 									{
-										if (interval < dat.numberintervals-1)
+										if (interval < dat.numberintervals-1)  					// should be >0
 											{
 												interval+=1;
 											}
@@ -1059,7 +1064,7 @@ inline void tryputparticle(data&dat,int p0, int m0)
 										putparticle(dat, dat.temproraryparticle, usingface);
 										checkdistance (dat, dat.temproraryparticle);
 										checkoverlap(dat, dat.temproraryparticle);
-										if ((dat.checkradius) and (dat.checkdistance) and (!dat.checkoverlap))
+										if ((dat.checkradius) and (dat.checkdistance) and (!dat.checkoverlap))						// if overlap only
 											{
 												distanceoverlap = dot(dat.particles.Particles[dat.overlappingpoint]->x - dat.particles.Particles[dat.faces[usingface].points[0]]->x, dat.faces[usingface].normal);
 												while ((distancepoint*distanceoverlap>0)and (!dat.checkoverlap)and(dat.checkdistance))							// if overlap with particle from other side of face then move particle

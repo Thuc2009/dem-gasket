@@ -385,7 +385,7 @@ inline double constriction(data&dat, int m0)
 		double a2 = (dat.particles.Particles[dat.faces[m0].points[0]]->Props.R -dat.particles.Particles[dat.faces[m0].points[2]]->Props.R-a1*dat.faces[m0].x2)/dat.faces[m0].y2;
 		double b1 = (pow(dat.faces[m0].x1,2.0)+pow(dat.particles.Particles[dat.faces[m0].points[0]]->Props.R,2.0)-pow(dat.particles.Particles[dat.faces[m0].points[1]]->Props.R,2.0))/2.0/dat.faces[m0].x1;
 		double b2 = (pow(dat.faces[m0].x2,2.0)+pow(dat.faces[m0].y2,2.0)+pow(dat.particles.Particles[dat.faces[m0].points[0]]->Props.R,2.0)-pow(dat.particles.Particles[dat.faces[m0].points[2]]->Props.R,2.0)-2*b1*dat.faces[m0].x2)/2/dat.faces[m0].y2;
-		double a = pow(a1,2.0)+pow(b1,2.0)-1;
+		double a = pow(a1,2.0)+pow(a2,2.0)-1;
 		double b = a1*b1+a2*b2-dat.particles.Particles[dat.faces[m0].points[0]]->Props.R;
 		double c = pow(b1, 2.0) +pow(b2, 2.0) - pow(dat.particles.Particles[dat.faces[m0].points[0]]->Props.R, 2.0);
 		if ((b*b-a*c)<0)

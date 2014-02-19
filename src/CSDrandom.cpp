@@ -343,7 +343,7 @@ inline double constrictionsize (data&dat, int p0, int p1, int p2)															
 		double a2 = (dat.particles.Particles[p0]->Props.R -dat.particles.Particles[p2]->Props.R-a1*x2)/y2;
 		double b1 = (pow(x1,2.0)+pow(dat.particles.Particles[p0]->Props.R,2.0)-pow(dat.particles.Particles[p1]->Props.R,2.0))/2.0/x1;
 		double b2 = (pow(x2,2.0)+pow(y2,2.0)+pow(dat.particles.Particles[p0]->Props.R,2.0)-pow(dat.particles.Particles[p2]->Props.R,2.0)-2*b1*x2)/2/y2;
-		double a = pow(a1,2.0)+pow(b1,2.0)-1;
+		double a = pow(a1,2.0)+pow(a2,2.0)-1;
 		double b = a1*b1+a2*b2-dat.particles.Particles[p0]->Props.R;
 		double c = pow(b1, 2.0) +pow(b2, 2.0) - pow(dat.particles.Particles[p0]->Props.R, 2.0);
 		double constriction = (-b-pow(pow(b, 2.0)-a*c,0.5))/a;
