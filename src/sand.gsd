@@ -1,17 +1,17 @@
 Sand2 Soil name
 Cube Specimen type "Sphere"/"Cube"/"Cylinder"/"File"
-3 5 5 5 1 1 1 number of size, size of specimen mm, factor of specimen (x,y,z)
+3 4.7 4.7 4.8 1 1 1 number of size, size of specimen mm, factor of specimen (x,y,z)
 Layer Type of filling
 6 Number of processors
 2.65 Soil particle density T/m3 = g/mm3
-0.35 Soil porosity
+0.50 Soil porosity
 5 Max % of fraction per interval
 5 1 GSD number of points and Number of shape:
 000 0.1 3.2 1.0 0.0 0.0 0.0 fraction diameter density sphere cube tetrahedron rectagular_box
-010 0.2 3.2 1.0 0.0 0.0 0.0
-060 0.5 3.2 1.0 0.0 0.0 0.0
-090 1.0 3.2 1.0 0.0 0.0 0.0
-100 2.0 3.2 1.0 0.0 0.0 0.0 
+010 0.1 3.2 1.0 0.0 0.0 0.0
+060 0.1 3.2 1.0 0.0 0.0 0.0
+090 0.1 3.2 1.0 0.0 0.0 0.0
+100 0.1 3.2 1.0 0.0 0.0 0.0 
 0.00005 approximation
 1 2 4 Rectangular box size ratios
 

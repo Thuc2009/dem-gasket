@@ -6,6 +6,7 @@
 #include <set>
 #include <list>
 #include <utility>
+#include <boost/date_time/posix_time/posix_time.hpp> // for time to milliseconds
 
 // Voro++
 #include "voro++.hh"
@@ -151,6 +152,7 @@ public:
     double ConstrictionSize(DEM::SequentialPackingData&packinfo, int p0, int p1, int p2);
     double ShapeMass(DEM::SequentialPackingData&packinfo, int shape, double size, double density);
     int GetInterval(DEM::SequentialPackingData&packinfo, int p0);
+    string Now();
     void AddParticle( DEM::SequentialPackingData&packinfo, int inter, int shape, double size, double density, Vec3_t position, double roundness=0.005);
     void BasicTetrahedron (DEM::SequentialPackingData&packinfo, int p[4]);
     void CheckBoundary(DEM::SequentialPackingData&packinfo, int p3);
@@ -245,12 +247,26 @@ inline double Soil::ShapeMass(DEM::SequentialPackingData&packinfo, int shape, do
 	}
 	return (mass);
 }
+
 inline int Soil::GetInterval(DEM::SequentialPackingData&packinfo, int p0)
 {
 	int inter = floor(abs(packinfo.specimen.Particles[p0]->Tag)/packinfo.gsd.numbershapes);
 	return (inter);
 }
-// Functions
+
+inline string Soil::Now()
+{
+	const boost::posix_time::ptime now = boost::posix_time::microsec_clock::local_time();	    // Get the time offset in current day
+	const boost::posix_time::time_duration td = now.time_of_day();
+	const long hours        = td.hours();
+	const long minutes      = td.minutes();
+	const long seconds      = td.seconds();
+	const long milliseconds = td.total_milliseconds()-((hours * 3600 + minutes * 60 + seconds) * 1000);
+	char buf[40];
+	sprintf(buf, "%02ld:%02ld:%02ld.%03ld",hours, minutes, seconds, milliseconds);
+	return buf;
+}
+// Procedures
 inline void Soil::AddParticle( DEM::SequentialPackingData&packinfo, int inter, int shape, double size, double density, Vec3_t position, double roundness)
 {
 	switch (shape)
@@ -1063,10 +1079,10 @@ inline void Soil::SequentialPacking(DEM::SequentialPackingData&packinfo)
     printf("\n%s--- Sequentially packing --------------------------------------------%s\n",TERM_CLR1,TERM_RST);
 	while ((packinfo.numberopenfaces >0)and(packinfo.numberunusedparticles >0))
 	{
-		if (packinfo.numberunusedparticles%1000==0)
-		{
-			cout << packinfo.numberunusedparticles<<"\n";
-		}
+//		if (packinfo.numberunusedparticles%1000==0)
+//		{
+//			cout << packinfo.numberunusedparticles<<"\n";
+//		}
 		while (packinfo.particleuses[packinfo.usingparticle])
 			{
 				packinfo.usingparticle -=1;
@@ -1138,10 +1154,6 @@ inline void Soil::TextOut(DEM::SequentialPackingData&packinfo)
 
 inline void Soil::TrySequentialParticle( DEM::SequentialPackingData&packinfo, int face, int p3)
 {
-	if ((packinfo.numberfaces>627)and(packinfo.numberfaces<631))
-	{
-		packinfo.check=true;
-	}
 	packinfo.temproraryparticle = p3;
 	PutSequentialParticle(packinfo,face,packinfo.temproraryparticle);
 	CheckOverlap( packinfo, packinfo.temproraryparticle);
@@ -1249,15 +1261,20 @@ inline void Soil::UseParticle( DEM::SequentialPackingData&packinfo, int p3)
 
 int main(int argc, char **argv)
 {
+
 	DEM::Soil sand;
 	DEM::SequentialPackingData packinfo;
 	sand.ReadGsd(packinfo);
+	cout << "Start Time: "<<sand.Now() << endl;
 	sand.CompleteGsdData(packinfo);
 	sand.PrepareList(packinfo);
+	cout << "Number of particles: "<<packinfo.gsd.numberparticles<<endl;
 	sand.SequentialPacking(packinfo);
 	sand.DeleteUnusedParticles(packinfo);
+	cout << "End time: "<<sand.Now()<<endl;
 	sand.SaveDomain(packinfo.specimen,packinfo.gsd.Soilname,1);
 	sand.TextOut(packinfo);
+
 //	sand.ReadDemParameters(packinfo,"sergio");
 //	sand.DropDown(packinfo);
 //	sand.SaveDomain(packinfo.specimen,packinfo.gsd.Soilname,1);
