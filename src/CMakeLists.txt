@@ -35,6 +35,8 @@ SET(PROGS
     slicesphere
     diverseshape
     suffusion
+    fractureLBM
+    test
     )
 
 FOREACH(var ${PROGS})

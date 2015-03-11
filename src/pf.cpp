@@ -40,18 +40,22 @@ int main(int argc, char **argv)
 	sand.ReadGsd(packinfo, path);
 	cout << "Start Time: "<<sand.Now() << endl;
 	sand.CompleteGsdData(packinfo);
-	sand.FindMinimumSpecimenSize(packinfo,3);
+	sand.FindMinimumSpecimenSize(packinfo);
 	sand.PrepareList(packinfo);
 	cout << "Number of particles: "<<packinfo.gsd.numberparticles<<endl;
 	// sand.PrintOut(packinfo);
+	if (packinfo.gsd.numberparticles>100000)
+	{
 
+	}
+	else
+	{
 	sand.SequentialPacking(packinfo);
 	sand.DeleteUnusedParticles(packinfo);
-	sand.ConstrictionSizeDistribution(packinfo);
 	//packinfo.specimen.AddCylinder(-1000,Vec3_t(0.,0.,-packinfo.boundaryfactors[1]/2),packinfo.boundaryfactors[0]/2,Vec3_t(0.,0.,packinfo.boundaryfactors[1]/2),packinfo.boundaryfactors[0]/2,0.1,2.65);
 	sand.SaveDomain(packinfo.specimen,packinfo.gsd.Soilname,1);
 	sand.TextOut(packinfo);
-	sand.SaveTetrahedraMesh(packinfo);
+	}
 	cout << "End time: "<<sand.Now()<<endl;
 //	sand.ReadDemParameters(packinfo,"sergio");
 //	sand.DropDown(packinfo);

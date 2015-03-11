@@ -1,7 +1,7 @@
 Sand Soil name
 Sphere Specimen type "Sphere"/"Cube"/"Cylinder"/"File"
-2 6 6 1 1   number of size, size of specimen mm, factor of specimen (x,y,z)
-Layer Type of filling "Layer"/ "Discrete"
+1 8 1   number of size, size of specimen mm, factor of specimen (x,y,z)
+Discrete Type of filling "Layer", "Discrete"
 6 Number of processors
 2.65 Soil particle density T/m3 = g/mm3
 0.35 Soil porosity
